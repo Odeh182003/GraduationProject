@@ -1,4 +1,4 @@
-import 'package:bzu_leads/pages/chattingGroup_page.dart';
+/*import 'package:bzu_leads/pages/chattingGroup_page.dart';
 import 'package:bzu_leads/pages/createPostsStudents.dart';
 import 'package:bzu_leads/pages/private_posts.dart';
 import 'package:bzu_leads/pages/profile_page.dart';
@@ -43,29 +43,7 @@ class MyDrawer extends StatelessWidget{
           ),
           ),
           SizedBox(height: 10.0),
-          Padding(
-  padding: const EdgeInsets.only(left: 25.0),
-  child: ListTile(
-    title: const Text('P R O F I L E'),
-    leading: const Icon(Icons.person),
-    onTap: () async {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? userID = prefs.getString("universityID");
-
-      if (userID != null) {
-        Navigator.pop(context);
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ProfilePage()),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("User ID not found. Please log in again.")),
-        );
-      }
-    },
-  ),
-),
+      
 SizedBox(height: 10.0),
           Padding(
   padding: const EdgeInsets.only(left: 25.0),
@@ -81,20 +59,7 @@ SizedBox(height: 10.0),
     },
   ),
 ),
-SizedBox(height: 10.0),
-          Padding(padding: const EdgeInsets.only(left: 25.0),
-          child: ListTile(
-            title: Text('Settings'),
-            leading: Icon(Icons.settings),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => settingsPage())
-              );
-            },
-          ),
-          ),
+
           SizedBox(height: 10.0),
           Padding(padding: const EdgeInsets.only(left: 25.0),
           child: ListTile(
@@ -138,4 +103,4 @@ SizedBox(height: 10.0),
     );
   }
 
-}
+}*/

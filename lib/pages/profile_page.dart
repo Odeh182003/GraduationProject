@@ -1,4 +1,7 @@
 import 'dart:io';
+//import 'package:bzu_leads/pages/chattingGroup_page.dart';
+//import 'package:bzu_leads/pages/private_posts.dart';
+//import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -48,7 +51,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> getUserData() async {
     if (userID == null) return;
 
-    final url = Uri.parse("http://172.19.41.196/public_html/FlutterGrad/getInformation.php?universityID=$userID");
+    final url = Uri.parse("http://localhost/public_html/FlutterGrad/getInformation.php?universityID=$userID");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -109,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse("http://172.19.41.196/public_html/FlutterGrad/updateUserInformation.php"),
+      Uri.parse("http://localhost/public_html/FlutterGrad/updateUserInformation.php"),
     );
 
     request.fields['universityID'] = userID!;
@@ -147,7 +150,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String fixImageUrl(String imageUrl) {
     String baseUrl = kIsWeb
         ? "http://localhost/public_html/FlutterGrad/"
-        : "http://172.19.41.196/public_html/FlutterGrad/";
+        : "http://192.168.10.4/public_html/FlutterGrad/";
 
     if (!imageUrl.startsWith("http")) {
       return "$baseUrl${imageUrl.replaceAll("\\", "/")}";
@@ -155,16 +158,34 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return imageUrl.replaceAll("http:/", "http://").replaceAll("https:/", "https://");
   }
+Future<void> logout(BuildContext context) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Clear stored session data
 
+    // Navigate to login screen and remove all previous routes
+    Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
+  }
  @override
 Widget build(BuildContext context) {
+ // SharedPreferences prefs =  SharedPreferences.getInstance() as SharedPreferences;
+  //String? username = prefs.getString("username");
+
   return Scaffold(
     backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(title: Text("Profile"),
-      backgroundColor: Colors.transparent,
-      foregroundColor: Colors.green,
-      elevation: 0,
-      ),
+      appBar: AppBar(
+        title: Text("Profile"),//$username
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.green,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              logout(context);
+              },
+              ),
+        ],
+),
     body: isLoading
         ? const Center(child: CircularProgressIndicator())
         : userData == null
@@ -193,8 +214,8 @@ Widget build(BuildContext context) {
                           child: const Text("Choose Image"),
                         ),
                       TextField(controller: usernameController, decoration: const InputDecoration(labelText: "Username")),
-                      TextField(controller: passwordController, decoration: const InputDecoration(labelText: "password")),
-                      TextField(controller: roleController, decoration: const InputDecoration(labelText: "Role ID")),
+                      TextField(controller: passwordController,obscureText: true, decoration: const InputDecoration(labelText: "password")),
+                      //TextField(controller: roleController, decoration: const InputDecoration(labelText: "Role ID")),
                       TextField(controller: genderController, decoration: const InputDecoration(labelText: "Gender")),
                       TextField(controller: dobController, decoration: const InputDecoration(labelText: "Date of Birth")),
                       TextField(controller: palestinianIDController, decoration: const InputDecoration(labelText: "Palestinian ID")),

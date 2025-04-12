@@ -1,6 +1,10 @@
+import 'package:bzu_leads/pages/profile_page.dart';
+import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Postsdetails extends StatefulWidget {
   final int postID;
@@ -21,7 +25,7 @@ class _PostsdetailsState extends State<Postsdetails> {
   }
 
   Future<void> fetchPostById() async {
-    final response = await http.get(Uri.parse('http://172.19.41.196/public_html/FlutterGrad/postsDetails.php?postID=${widget.postID}'));
+    final response = await http.get(Uri.parse('http://localhost/public_html/FlutterGrad/postsDetails.php?postID=${widget.postID}'));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -41,10 +45,41 @@ class _PostsdetailsState extends State<Postsdetails> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(title: Text("Private Posts"),
-      backgroundColor: Colors.transparent,
-      foregroundColor: Colors.green,
-      elevation: 0,
+      appBar: AppBar(
+        title: Text("Public Posts"),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.green,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              // Navigate to the Settings page
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => settingsPage()),
+              );
+            },
+          ),
+          IconButton(
+      icon: Icon(Icons.person),
+      onPressed: () async {
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        String? userID = prefs.getString("universityID");
+
+        if (userID != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ProfilePage()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("User ID not found. Please log in again.")),
+          );
+        }
+      },
+    ),
+        ],
       ),
       body: post == null
         ? Center(child: CircularProgressIndicator()) 
@@ -65,7 +100,7 @@ class _PostsdetailsState extends State<Postsdetails> {
     borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
     image: post!['media'] != null
         ? DecorationImage(
-            image: NetworkImage("http://172.19.41.196/public_html/FlutterGrad/${post!['media']}"),
+            image: NetworkImage("http://localhost/public_html/FlutterGrad/${post!['media']}"),
             fit: BoxFit.cover, // Ensures the image covers the entire area
           )
         : null,

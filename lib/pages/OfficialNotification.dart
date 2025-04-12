@@ -1,4 +1,7 @@
+import 'package:bzu_leads/pages/profile_page.dart';
+import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 class Officialnotification extends StatefulWidget {
   const Officialnotification({super.key});
 
@@ -22,10 +25,41 @@ class _Officialnotification extends State<Officialnotification> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(title: Text("Official Notifications"),
-      backgroundColor: Colors.transparent,
-      foregroundColor: Colors.green,
-      elevation: 0,
+      appBar: AppBar(
+        title: Text("Officials' Public Posts"),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.green,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              // Navigate to the Settings page
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => settingsPage()),
+              );
+            },
+          ),
+          IconButton(
+      icon: Icon(Icons.person),
+      onPressed: () async {
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        String? userID = prefs.getString("universityID");
+
+        if (userID != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ProfilePage()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("User ID not found. Please log in again.")),
+          );
+        }
+      },
+    ),
+        ],
       ),
       body: Column(
         children: [

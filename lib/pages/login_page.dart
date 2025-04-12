@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:bzu_leads/components/my_button.dart';
 import 'package:bzu_leads/components/my_textfields.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,67 +18,80 @@ class _LoginState extends State<Login> {
   final TextEditingController _password = TextEditingController();
   bool isLoading = false;
 
-  Future<void> login() async {
-    setState(() => isLoading = true);
-
-    var url = Uri.parse("http://172.19.41.196/public_html/FlutterGrad/login.php");
-    var response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "universityID": _uniID.text,
-        "password": _password.text,
-      }),
-    );
-
-    var data = jsonDecode(response.body);
-    setState(() => isLoading = false);
-
-    if (data['success']) {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString("username", data['username']);
-      await prefs.setString("role", data['role']);
-      await prefs.setString("universityID", _uniID.text);
-      await prefs.setString("password", _password.text);
-
-      // Store section IDs if user is a student
-      if (data['role'] == "student") {
-        List<String> sectionIDs = List<String>.from(data['sectionIDs'] ?? []);
-        await prefs.setStringList("sectionIDs", sectionIDs);
-      }
-
-      // Navigate based on role
-      switch (data['role']) {
-        case "student":
-          Navigator.pushReplacementNamed(context, "/student_dashboard");
-          break;
-        case "academic":
-          Navigator.pushReplacementNamed(context, "/academic_dashboard");
-          break;
-        case "official":
-          Navigator.pushReplacementNamed(context, "/official_dashboard");
-          break;
-        default:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Invalid role")),
-          );
-      }
+Future<void> login() async {
+   setState(() => isLoading = true);
+    Uri url;
+    if(kIsWeb){
+      url = Uri.parse("http://localhost/public_html/FlutterGrad/login.php");
     } else {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Login failed"),
-          content: const Text("Check your credentials."),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
-        ),
+      url = Uri.parse("http://192.168.10.4/public_html/FlutterGrad/login.php");
+    }
+  var response = await http.post(
+    url,
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({
+      "universityID": _uniID.text,
+      "password": _password.text,
+    }),
+  );
+
+  var data = jsonDecode(response.body);
+  setState(() => isLoading = false);
+
+  if (data['success']) {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString("username", data['username']);
+    await prefs.setString("role", jsonEncode(data['roles']));
+    await prefs.setString("universityID", _uniID.text);
+    await prefs.setString("password", _password.text);
+
+    // Store section IDs for student roles
+    if (data['studentData'] != null) {
+      List<String> sectionIDs = List<String>.from(data['studentData']['sectionIDs'] ?? []);
+      await prefs.setStringList("sectionIDs", sectionIDs);
+    }
+
+    // Store club data for official roles
+    if (data['officialData'] != null) {
+      List<Map<String, dynamic>> officialClubs = List<Map<String, dynamic>>.from(
+        data['officialData']['clubs'].map((club) => {
+          'studentclubID': club['studentclubID'],
+          'studentclubname': club['studentclubname'],
+        }) ?? [],
+      );
+      await prefs.setStringList("officialClubs", officialClubs.map((club) => jsonEncode(club)).toList());
+    }
+
+    // Navigate based on the default role
+    String defaultRole = data['defaultRole'];
+    if (defaultRole == "official") {
+      Navigator.pushReplacementNamed(context, "/official_dashboard");
+    } else if (defaultRole == "student") {
+      Navigator.pushReplacementNamed(context, "/student_dashboard");
+    }else if(defaultRole == "academic"){
+      Navigator.pushReplacementNamed(context, "/academic_dashboard");    }
+     else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid role")),
       );
     }
+  } else {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Login failed"),
+        content: const Text("Check your credentials."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

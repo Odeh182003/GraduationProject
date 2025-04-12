@@ -1,7 +1,10 @@
+import 'package:bzu_leads/pages/profile_page.dart';
+import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EventFormScreen extends StatefulWidget {
   const EventFormScreen({super.key});
@@ -11,7 +14,7 @@ class EventFormScreen extends StatefulWidget {
 }
 
 class _EventFormScreenState extends State<EventFormScreen> {
-  final TextEditingController nameController = TextEditingController();
+ // final TextEditingController nameController = TextEditingController();
   final TextEditingController universityIdController = TextEditingController();
   final TextEditingController eventTitleController = TextEditingController();
   final TextEditingController eventContentController = TextEditingController();
@@ -20,7 +23,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   @override
   void dispose() {
-    nameController.dispose();
+   // nameController.dispose();
     universityIdController.dispose();
     eventTitleController.dispose();
     eventContentController.dispose();
@@ -44,48 +47,53 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   // Function to submit the form to the PHP server
   void _submitForm() async {
-    String name = nameController.text.trim();
+    //String name = nameController.text.trim();
     String universityId = universityIdController.text.trim();
     String eventTitle = eventTitleController.text.trim();
     String eventContent = eventContentController.text.trim();
     String date = selectedDate != null
         ? DateFormat('yyyy-MM-dd').format(selectedDate!)
-        : "No date selected";
-    String participationType = selectedParticipationType;
-    String timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+        : "";
+      //  print("Name: $name");
+  print("University ID: $universityId");
+  print("Event Title: $eventTitle");
+  print("Event Content: $eventContent");
+  print("Date: $date");
+  print("Participation Type: $selectedParticipationType");
 
-    if (name.isEmpty || universityId.isEmpty || eventTitle.isEmpty || eventContent.isEmpty) {
+    if (universityId.isEmpty || eventTitle.isEmpty || eventContent.isEmpty || date.isEmpty) {
       _showErrorDialog("Please fill in all required fields.");
       return;
     }
 
     // Prepare JSON data for the request
-    Map<String, String> data = {
-      'activityName': name,
+    Map<String, dynamic> data = {
+      'activityName': eventTitle,
       'activityHostID': universityId,
       'activityDate': date,
-      'participationType': participationType,
-      'timestamp': timestamp,
+      'participationType': selectedParticipationType,
       'CONTENT': eventContent,
     };
 
-    // Send data to PHP backend via POST request
-    var response = await http.post(
-      Uri.parse('http://172.19.41.196/public_html/FlutterGrad/officials_new_event.php'), 
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(data),
-    );
+    try {
+      var response = await http.post(
+        Uri.parse('http://localhost/public_html/FlutterGrad/officials_new_event.php'), 
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(data),
+      );
 
-    // Handle the response from the server
-    if (response.statusCode == 200) {
-      var responseData = json.decode(response.body);
-      if (responseData['status'] == 'success') {
-        _showSuccessDialog(responseData['message']);
+      if (response.statusCode == 200) {
+        var responseData = json.decode(response.body);
+        if (responseData['status'] == 'success') {
+          _showSuccessDialog(responseData['message']);
+        } else {
+          _showErrorDialog(responseData['message']);
+        }
       } else {
-        _showErrorDialog(responseData['message']);
+        _showErrorDialog("Failed to submit event. Please try again.");
       }
-    } else {
-      _showErrorDialog("Failed to submit event. Please try again.");
+    } catch (e) {
+      _showErrorDialog("An error occurred: $e");
     }
   }
 
@@ -94,12 +102,12 @@ class _EventFormScreenState extends State<EventFormScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Success"),
+          title: const Text("Success"),
           content: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text("OK"),
+              child: const Text("OK"),
             ),
           ],
         );
@@ -112,12 +120,12 @@ class _EventFormScreenState extends State<EventFormScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Error"),
+          title: const Text("Error"),
           content: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text("OK"),
+              child: const Text("OK"),
             ),
           ],
         );
@@ -130,28 +138,51 @@ class _EventFormScreenState extends State<EventFormScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text("Create New Event"),
+        title: const Text("Create new Event"),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.green,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const settingsPage()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () async {
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              String? userID = prefs.getString("universityID");
+
+              if (userID != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("User ID not found. Please log in again.")),
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             _buildTextField(
-                "Event Title *", eventTitleController, "Enter event title"),
-           // _buildTextField("Name *", nameController, "Enter your full name"),
-            _buildTextField(
-                "University ID *", universityIdController, "Enter Host university ID"),
-           
-            _buildTextField("Event Content *", eventContentController,
-                "Enter event content", maxLines: 4),
+            _buildTextField("Event Title *", eventTitleController, "Enter event title"),
+            _buildTextField("University ID *", universityIdController, "Enter Host university ID"),
+            _buildTextField("Event Content *", eventContentController, "Enter event content", maxLines: 4),
 
-            // Date Picker
-            SizedBox(height: 10),
-            Text("Date"),
+            const SizedBox(height: 10),
+            const Text("Date"),
             Row(
               children: [
                 Text(
@@ -159,17 +190,16 @@ class _EventFormScreenState extends State<EventFormScreen> {
                       ? "No date selected"
                       : DateFormat('yyyy-MM-dd').format(selectedDate!),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 ElevatedButton(
                   onPressed: () => _selectDate(context),
-                  child: Text("Pick Date"),
+                  child: const Text("Pick Date"),
                 ),
               ],
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-            // Participation Type Dropdown
-            Text("Participation Type"),
+            const Text("Participation Type"),
             DropdownButton<String>(
               value: selectedParticipationType,
               onChanged: (String? newValue) {
@@ -185,37 +215,32 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 );
               }).toList(),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-            // Submit Button
             Center(
               child: ElevatedButton(
                 onPressed: _submitForm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
-                  padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
                 ),
-                child: Text("Submit", style: TextStyle(color: Colors.white)),
+                child: const Text("Submit", style: TextStyle(color: Colors.white)),
               ),
             ),
           ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: [
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.explore), label: "Explore"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: "Messaging",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messaging"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      String hintText, {int maxLines = 1}) {
+  Widget _buildTextField(String label, TextEditingController controller, String hintText, {int maxLines = 1}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(
@@ -227,7 +252,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
             maxLines: maxLines,
             decoration: InputDecoration(
               hintText: hintText,
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
             ),
           ),
         ],

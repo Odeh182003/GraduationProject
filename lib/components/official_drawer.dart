@@ -1,7 +1,7 @@
-import 'package:bzu_leads/pages/OfficialNotification.dart';
+/*import 'package:bzu_leads/pages/OfficialNotification.dart';
 import 'package:bzu_leads/pages/chattingGroup_page.dart';
 import 'package:bzu_leads/pages/createEventOfficials.dart';
-import 'package:bzu_leads/pages/createPostsOfficial.dart';
+import 'package:bzu_leads/pages/PostFormScreen.dart';
 //import 'package:bzu_leads/pages/chatting_page.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:flutter/material.dart';
@@ -104,7 +104,7 @@ class OfficialDrawer extends StatelessWidget{
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => Createpostsofficial())
+                MaterialPageRoute(builder: (context) => PostFormScreen())
               );
             },
           ),
@@ -153,4 +153,4 @@ class OfficialDrawer extends StatelessWidget{
     );
   }
 
-}
+}*/
