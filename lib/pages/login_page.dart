@@ -93,30 +93,92 @@ Future<void> login() async {
 }
 
 
-  @override
+ @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      body: Center(
+  body: Stack(
+    children: [
+      // Background Image
+      Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("assets/Blog-Olive-Tree-1.png"),
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+
+      // Semi-transparent overlay
+      Container(color: Colors.black.withOpacity(0.3)),
+
+      // Top-left logo
+      Positioned(
+        top: 40,
+        left: 40,
+        child: Image.asset(
+  'assets/logo.png',
+  height: 150,
+),
+      ),
+
+      // Main content
+      Center(
         child: SingleChildScrollView(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('Login', style: TextStyle(fontSize: 30, color: Colors.green)),
-              const Icon(Icons.login_rounded, size: 60),
-              const SizedBox(height: 50),
-              const Text("Welcome To BZU Leads", style: TextStyle(color: Colors.green, fontSize: 18)),
-              const SizedBox(height: 25),
-              MyTextfields(hintText: "University ID", obscureText: false, controller: _uniID),
-              const SizedBox(height: 10.0),
-              MyTextfields(hintText: "Password", obscureText: true, controller: _password),
-              const SizedBox(height: 25.0),
-              isLoading ? const CircularProgressIndicator() : MyButton(text: "Login", onTap: login, TextStyle: Colors.green),
-              const SizedBox(height: 25.0),
+              // Login Form Container
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 30),
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Login to BZU Leads',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    MyTextfields(
+                      hintText: "University ID",
+                      obscureText: false,
+                      controller: _uniID,
+                    ),
+                    const SizedBox(height: 10),
+                    MyTextfields(
+                      hintText: "Password",
+                      obscureText: true,
+                      controller: _password,
+                    ),
+                    const SizedBox(height: 20),
+                    isLoading
+                        ? const CircularProgressIndicator()
+                        : MyButton(
+                            text: "Login",
+                            onTap: login,
+                          ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
-    );
-  }
-}
+    ],
+  ),
+);
+  }}

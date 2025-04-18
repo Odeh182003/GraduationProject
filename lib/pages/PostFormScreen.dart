@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,7 @@ class PostFormScreen extends StatefulWidget {
 }
 
 class _PostFormScreenState extends State<PostFormScreen> {
+  int? approverId;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   String? _postType = "public"; // Default post type
@@ -29,35 +31,39 @@ class _PostFormScreenState extends State<PostFormScreen> {
   }
 
   Future<void> _loadUserData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? storedUserId = prefs.getString("universityID");
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? storedUserId = prefs.getString("universityID");
 
-    if (storedUserId != null) {
-      setState(() {
-        _userId = storedUserId;
-      });
-      await _fetchFacultyId(storedUserId.toString());
-    }
+  if (storedUserId != null) {
+    if (!mounted) return;
+    setState(() {
+      _userId = storedUserId;
+    });
+    await _fetchFacultyId(storedUserId.toString());
   }
+}
+
 
   Future<void> _fetchFacultyId(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse("http://localhost/public_html/FlutterGrad/getInformation.php?universityID=$userId"),
-      );
+  try {
+    final response = await http.get(
+      Uri.parse("http://localhost/public_html/FlutterGrad/getInformation.php?universityID=$userId"),
+    );
 
-      if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
-        if (data["success"] == true) {
-          setState(() {
-            _facultyId = data["data"]["facultyID"];
-          });
-        }
+    if (response.statusCode == 200) {
+      var data = jsonDecode(response.body);
+      if (data["success"] == true) {
+        if (!mounted) return; 
+        setState(() {
+          _facultyId = data["data"]["facultyID"];
+        });
       }
-    } catch (e) {
-      print("Error fetching faculty ID: $e");
     }
+  } catch (e) {
+    print("Error fetching faculty ID: $e");
   }
+}
+
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -93,11 +99,14 @@ Future<void> _submitPost() async {
   request.fields["POSTCREATORID"] = _userId.toString();
   request.fields["posttitle"] = _titleController.text;
   request.fields["CONTENT"] = _contentController.text;
-  request.fields["APPROVALID"] = "Null";
   request.fields["APPROVALSTATUS"] = "approved";
   request.fields["DATECREATED"] = DateTime.now().toUtc().toIso8601String();
   request.fields["REVIEWEDBY"] = _userId.toString();
   request.fields["REVIEWEDDATE"] = DateTime.now().toUtc().toIso8601String();
+
+  if (approverId != null) {
+    request.fields["APPROVALID"] = approverId.toString();
+  }
 
   if (_postType == "private") {
     request.fields["facultyID"] = _facultyId.toString();
@@ -126,8 +135,6 @@ Future<void> _submitPost() async {
     );
   }
 }
-
-
   @override
   Widget build(BuildContext context) {
    return Scaffold(
@@ -174,7 +181,8 @@ Future<void> _submitPost() async {
               Text("Private"),
             ],
           ),
-          SizedBox(height: 10),
+          
+             SizedBox(height: 10),
           _selectedImage != null
               ? Image.file(_selectedImage!, height: 100)
               : Text("No image selected"),
@@ -182,11 +190,15 @@ Future<void> _submitPost() async {
             onPressed: _pickImage,
             child: Text("Pick Image"),
           ),
+          
+           
           SizedBox(height: 20),
           ElevatedButton(
             onPressed: _submitPost,
             child: Text("Submit Post"),
           ),
+          
+          
         ],
       ),
     ),
