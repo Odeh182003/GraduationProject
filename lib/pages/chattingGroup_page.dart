@@ -1,13 +1,13 @@
-//import 'dart:convert';
-//import 'package:bzu_leads/pages/profile_page.dart';
-import 'package:bzu_leads/pages/settingsPage.dart';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-//import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bzu_leads/components/user_tile.dart';
+//import 'package:bzu_leads/components/user_tile.dart';
 import 'package:bzu_leads/pages/chatting_page.dart';
 import 'package:bzu_leads/services/group_service.dart';
+
 class ChattingGroupPage extends StatefulWidget {
+
   const ChattingGroupPage({super.key});
 
   @override
@@ -15,12 +15,10 @@ class ChattingGroupPage extends StatefulWidget {
 }
 
 class _ChattingGroupPageState extends State<ChattingGroupPage> {
-  
   List<Map<String, dynamic>> _groups = [];
   String? _currentUserID;
-  List<String> _userSections = [];
   String? _role;
-  SharedPreferences? prefs;
+  SharedPreferences? _prefs;
 
   @override
   void initState() {
@@ -29,87 +27,146 @@ class _ChattingGroupPageState extends State<ChattingGroupPage> {
   }
 
   Future<void> _initializePreferences() async {
-    prefs = await SharedPreferences.getInstance();
+    _prefs = await SharedPreferences.getInstance();
     _loadCurrentUser();
   }
 
   Future<void> _loadCurrentUser() async {
-    setState(() {
-      _currentUserID = prefs?.getString("universityID");
-      _userSections = prefs?.getStringList("sectionIDs") ?? [];
-      _role = prefs?.getString("role");
-    });
+  final universityID = _prefs?.getString("universityID");
+  final roleJson = _prefs?.getString("role");
 
-    if (_currentUserID != null && _role != null) {
-      _fetchGroups();
+  if (universityID != null && roleJson != null) {
+    final decodedRoles = List<String>.from(jsonDecode(roleJson));
+
+    setState(() {
+      _currentUserID = universityID;
+      _role = decodedRoles.contains("academic")
+          ? "academic"
+          : decodedRoles.contains("official")
+              ? "official"
+              : null;
+    });
+             print("Decoded Roles: $decodedRoles");
+    _fetchGroups();
+  }
+}
+
+
+  Future<void> _fetchGroups() async {
+    if (_currentUserID == null) return;
+
+    final groups = await GroupService.getChatGroups(_currentUserID!);
+    setState(() {
+      _groups = groups;
+    });
+  }
+bool _isCreating = false;
+  Future<void> createGroups() async {
+  if (_isCreating) return; // Prevent double-tap
+
+  setState(() {
+    _isCreating = true;
+  });
+
+  if (_currentUserID != null && (_role == "academic" || _role == "official")) {
+    final response = await GroupService.createGroups(_currentUserID!, _role!);
+    print("Assigned Role: $_role");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(response['message'] ?? "Something happened")),
+    );
+
+    if (response['success']) {
+      _fetchGroups(); // Refresh the list if successful
     }
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Only academics and officials can create groups")),
+    );
   }
 
-Future<void> _fetchGroups() async {
-  if (_currentUserID == null) return;
-
-  final groups = await GroupService.getChatGroups(_currentUserID!);
   setState(() {
-    _groups = groups;
+    _isCreating = false;
   });
 }
 
+
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: Text("Chatting Groups"),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.green,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => settingsPage()),
-              );
-            },
-          ),
-          
-        ],
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    appBar: AppBar(
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 40, // Adjust height as needed
       ),
-      body: _buildGroupList(),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Chatting Groups Page",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),
+    ),
+    body: ListView.builder(
+      itemCount: _groups.length,
+      itemBuilder: (context, index) {
+        final group = _groups[index];
+        return ListTile(
+          title: Text(group['groupName']),
+          subtitle: Text('Group ID: ${group['groupID']}'),
+          onTap: () => _navigateToChattingPage(group),
+        );
+      },
+    ),
+    floatingActionButton: (_role == "academic" || _role == "official")
+        ? FloatingActionButton(
+            onPressed: createGroups,
+            backgroundColor: Colors.green,
+            child: const Icon(Icons.group_add),
+          )
+        : null,
+  );
+}
+void _navigateToChattingPage(Map<String, dynamic> group) {
+  String? senderUsername = _prefs?.getString("username");
+  if (senderUsername == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Error: User not authenticated")),
     );
+    return;
   }
 
- Widget _buildGroupList() {
-  if (_groups.isEmpty) {
-    return  Center(
-      child:CircularProgressIndicator()
-    );
-  }else{
-    return ListView.builder(
-    itemCount: _groups.length,
-    itemBuilder: (context, index) {
-      var group = _groups[index];
-      return _buildGroupListItem(group, context);
-    },
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ChattingPage(
+        groupId: group['groupID'],
+        groupName: group['groupName'],
+        senderUsername: senderUsername,
+      ),
+    ),
   );
-  }
-  
 }
 
-
-  Widget _buildGroupListItem(Map<String, dynamic> group, BuildContext context) {
+ /* Widget _buildGroupListItem(Map<String, dynamic> group) {
     return UserTile(
       text: group['groupName'],
       onTap: () async {
-        String? senderUsername = prefs?.getString("username");
+        String? senderUsername = _prefs?.getString("username");
         if (senderUsername == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Error: User not authenticated")),
           );
           return;
         }
-         print("Navigating to chat with group ID: ${group['groupID']}");
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -119,10 +176,8 @@ Future<void> _fetchGroups() async {
               senderUsername: senderUsername,
             ),
           ),
-          
         );
-        
       },
     );
-  }
+  }*/
 }

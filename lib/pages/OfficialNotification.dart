@@ -1,184 +1,171 @@
-import 'package:bzu_leads/pages/profile_page.dart';
-import 'package:bzu_leads/pages/settingsPage.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class Officialnotification extends StatefulWidget {
-  const Officialnotification({super.key});
+import 'package:bzu_leads/pages/profile_page.dart';
+import 'package:bzu_leads/pages/settingsPage.dart';
+import 'package:shimmer/shimmer.dart';
+
+class OfficialNotification extends StatefulWidget {
+  const OfficialNotification({super.key});
 
   @override
-  _Officialnotification createState() => _Officialnotification();
+  State<OfficialNotification> createState() => _OfficialNotificationState();
 }
-class _Officialnotification extends State<Officialnotification> {
-  int _selectedIndex =
-      0; // Variable to track the selected item in the bottom navigation bar
-  List posts = []; // List to hold the pending posts fetched from the server
+
+class _OfficialNotificationState extends State<OfficialNotification> {
+  //int _selectedIndex = 0;
+  List posts = [];
+  String? userId;
 
   @override
   void initState() {
     super.initState();
-    fetchPendingPosts(); // Fetch the pending posts when the screen is initialized
+    _loadUserIdAndFetchPosts();
   }
 
-  // Function to handle bottom navigation item selection
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index; // Update the selected index
-    });
+  Future<void> _loadUserIdAndFetchPosts() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    userId = prefs.getString("universityID");
+
+    if (userId != null) {
+      await _fetchPendingPosts(userId!);
+    } else {
+      print("User ID not found.");
+    }
   }
 
-  // Function to fetch pending posts from the server
-  Future<void> fetchPendingPosts() async {
+  Future<void> _fetchPendingPosts(String userId) async {
     final response = await http.get(
-      Uri.parse(
-        'http://localhost/public_html/FlutterGrad/get_pending_posts.php',
-      ),
+      Uri.parse('http://192.168.10.5/public_html/FlutterGrad/get_pending_posts.php?reviewerId=$userId'),
     );
 
-    // Check if the request was successful
     if (response.statusCode == 200) {
-      setState(() {
-        posts = json.decode(response.body); // Decode and store the posts
-      });
+      try {
+        final data = json.decode(response.body);
+        setState(() {
+          posts = data;
+        });
+      } catch (e) {
+        print("Error decoding JSON: $e");
+      }
+    } else {
+      print("Failed to fetch posts: ${response.statusCode}");
     }
   }
 
-  // Function to approve a post
-  Future<void> approvePost(String postID, String approverID) async {
-    final response = await http.post(
-      Uri.parse(' http://localhost/public_html/FlutterGrad/approve.php'),
+  Future<void> _handlePostAction(String postId, String postType, String action) async {
+    final url = 'http://192.168.10.5/public_html/FlutterGrad/$action.php';
+    if (userId == null) return;
 
-      body: {
-        'postID': postID, // Pass postID and approverID as parameters
-        'approverID': approverID,
-      },
-    );
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'postId': postId,
+          'approverId': userId,
+          'postType': postType,
+        }),
+      );
 
-    // If the response is successful, fetch the updated posts
-    if (json.decode(response.body)['success']) {
-      fetchPendingPosts();
+      final result = jsonDecode(response.body);
+      if (response.statusCode == 200 && result['success']) {
+        print('Post $action successful.');
+        
+        await _fetchPendingPosts(userId!);
+      } else {
+        print('Post $action failed: ${result['error']}');
+      }
+    } catch (e) {
+      print('Error: $e');
     }
   }
 
-  // Function to reject a post
-  Future<void> rejectPost(String postID) async {
-    final response = await http.post(
-      Uri.parse('http://localhost/public_html/FlutterGrad/reject.php'),
-      body: {'postID': postID}, // Pass the postID to reject
-    );
+  /*void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
 
-    // If the response is successful, fetch the updated posts
-    if (json.decode(response.body)['success']) {
-      fetchPendingPosts();
+    if (index == 2) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
     }
-  }
+  }*/
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          Theme.of(
-            context,
-          ).colorScheme.surface, // Set the background color based on the theme
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text("Officials' Public Posts"), // Title for the AppBar
-        backgroundColor:
-            Colors.transparent, // Transparent background for AppBar
-        foregroundColor: Colors.green, // Set the text color in the AppBar
-        elevation: 0, // No elevation for the AppBar
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.green,
+        elevation: 1,
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              height: 40, // Adjust height as needed
+            ),
+            const SizedBox(width: 8), // Space between image and text
+            const Text(
+              "Officials' Notifications",
+              style: TextStyle(
+                color: Colors.green, // Ensure text color matches your theme
+              ),
+            ),
+          ],
+        ),
         actions: [
-          // Settings button to navigate to the settings page
           IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => settingsPage()),
-              );
-            },
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const settingsPage())),
           ),
-          // Profile button to navigate to the profile page
           IconButton(
-            icon: Icon(Icons.person),
-            onPressed: () async {
-              SharedPreferences prefs = await SharedPreferences.getInstance();
-              String? userID = prefs.getString("universityID");
-
-              // If a user ID exists, navigate to the profile page
-              if (userID != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfilePage()),
-                );
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              if (userId != null) {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
               } else {
-                // Show a snack bar if user ID is not found
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("User ID not found. Please log in again."),
-                  ),
+                  const SnackBar(content: Text("User ID not found. Please log in again.")),
                 );
               }
             },
           ),
         ],
       ),
-      body:
-          posts.isEmpty
-              ? Center(
-                child: CircularProgressIndicator(),
-              ) // Show a loading spinner if posts are empty
-              : ListView.builder(
-                itemCount: posts.length, // Number of posts to display
-                itemBuilder: (context, index) {
-                  final post =
-                      posts[index]; // Get each post from the posts list
-                  return NotificationCard(
-                    title: post['posttitle'] ?? '', // Display the post title
-                    content: post['CONTENT'] ?? '', // Display the post content
-                    creatorID:
-                        post['POSTCREATORID'] ?? '', // Display the creator ID
-                    postID: post['POSTID'] ?? '', // Display the post ID
-                    onApprove: () async {
-                      SharedPreferences prefs =
-                          await SharedPreferences.getInstance();
-                      String? approverID = prefs.getString("universityID");
-                      if (approverID != null) {
-                        await approvePost(
-                          post['POSTID'],
-                          approverID,
-                        ); // Approve the post
-                      }
-                    },
-                    onReject: () async {
-                      await rejectPost(post['POSTID']); // Reject the post
-                    },
-                  );
-                },
-              ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex, // Tracks the currently selected item
-        onTap: _onItemTapped, // Call this function when an item is tapped
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: "Explore"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: "Messaging",
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
-      ),
+      body: posts.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                return NotificationCard(
+                  title: post['posttitle'] ?? '',
+                  content: post['CONTENT'] ?? '',
+                  creatorID: post['POSTCREATORID']?.toString() ?? '',
+                  postID: post['POSTID']?.toString() ?? '',
+                  postType: post['POSTTYPE'] ?? 'public',
+                  mediaUrl: post['media'] ?? '', // Pass media URL
+                  onApprove: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'approve'),
+                  onReject: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'reject'),
+                );
+              },
+            ),
     );
   }
 }
-
-// NotificationCard widget to display a single notification
 class NotificationCard extends StatelessWidget {
   final String title;
   final String content;
   final String creatorID;
   final String postID;
+  final String postType;
+  final String mediaUrl;
   final VoidCallback onApprove;
   final VoidCallback onReject;
 
@@ -188,77 +175,119 @@ class NotificationCard extends StatelessWidget {
     required this.content,
     required this.creatorID,
     required this.postID,
+    required this.postType,
+    required this.mediaUrl,
     required this.onApprove,
     required this.onReject,
   });
 
+  // Function to get image size
+  Future<Size> _getImageSize(String imageUrl) async {
+    final image = NetworkImage(imageUrl);
+    final configuration = ImageConfiguration();
+    final imageStream = image.resolve(configuration);
+    final completer = Completer<ImageInfo>();
+    imageStream.addListener(ImageStreamListener((info, _) {
+      completer.complete(info);
+    }));
+    final imageInfo = await completer.future;
+    return Size(imageInfo.image.width.toDouble(), imageInfo.image.height.toDouble());
+  }
+
   @override
   Widget build(BuildContext context) {
+    String fullMediaUrl = 'http://192.168.10.5/public_html/FlutterGrad/$mediaUrl'; // Full image URL
+
     return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ), // Margin for the card
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ), // Rounded corners for the card
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0), // Padding inside the card
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start, // Align children to the left
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment
-                      .spaceBetween, // Space between title and icon
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "$creatorID",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ), // Creator ID
-                Icon(
-                  Icons.public,
-                  color: Colors.green,
-                ), // Icon for public posts
+                Text(creatorID, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
+                Icon(postType == 'private' ? Icons.lock : Icons.public, color: Colors.green),
               ],
             ),
-            SizedBox(height: 4),
-            Text(
-              "Title: $title",
-              style: TextStyle(fontSize: 16),
-            ), // Display post title
-            SizedBox(height: 4),
-            Text(
-              content,
-              style: TextStyle(color: Colors.grey[700]),
-            ), // Display post content
-            SizedBox(height: 10),
+            const SizedBox(height: 4),
+            Text("Title: $title", style: const TextStyle(fontSize: 20)),
+            const SizedBox(height: 4),
+            Text(content, style: TextStyle(color: Colors.black, fontSize: 30)),
+
+            // Add image if mediaUrl is not empty
+            if (mediaUrl.isNotEmpty)
+              FutureBuilder<Size>(
+                future: _getImageSize(fullMediaUrl),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Shimmer.fromColors(
+                      baseColor: Colors.grey[300]!,
+                      highlightColor: Colors.grey[100]!,
+                      child: Container(
+                        height: 120, // Reduced height for the image
+                        width: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  } else if (snapshot.hasData) {
+                    final aspectRatio = snapshot.data!.width / snapshot.data!.height;
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: AspectRatio(
+                        aspectRatio: aspectRatio,
+                        child: Image.network(
+                          fullMediaUrl, // Use the full URL path
+                          fit: BoxFit.cover, // Use cover to make the image fill the container
+                          height: 120, // Set a fixed height for the image
+                          width: 120, // Ensure the image takes up the full width
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Shimmer.fromColors(
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(
+                                height: 120, // Reduced height
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return const SizedBox(); // or show a fallback image/icon
+                          },
+                        ),
+                      ),
+                    );
+                  } else {
+                    return const SizedBox(); // fallback if error
+                  }
+                },
+              ),
+
+            const SizedBox(height: 10),
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.end, // Align buttons to the right
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 ElevatedButton(
-                  onPressed:
-                      onApprove, // Call the approve function when pressed
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[200],
-                  ), // Green background for approve button
-                  child: Text(
-                    "Approve",
-                    style: TextStyle(color: Colors.black),
-                  ), // Button text
+                  onPressed: onApprove,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green[200]),
+                  child: const Text("Approve", style: TextStyle(color: Colors.green)),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: onReject, // Call the reject function when pressed
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                  ), // Red background for reject button
-                  child: Text(
-                    "Reject",
-                    style: TextStyle(color: Colors.white),
-                  ), // Button text
+                  onPressed: onReject,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+                  child: const Text("Reject", style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),

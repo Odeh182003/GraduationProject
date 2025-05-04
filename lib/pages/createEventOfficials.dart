@@ -77,7 +77,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
     try {
       var response = await http.post(
-        Uri.parse('http://localhost/public_html/FlutterGrad/officials_new_event.php'), 
+        Uri.parse('http://192.168.10.5/public_html/FlutterGrad/officials_new_event.php'), 
         headers: {'Content-Type': 'application/json'},
         body: json.encode(data),
       );
@@ -138,10 +138,24 @@ class _EventFormScreenState extends State<EventFormScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Create new Event"),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.green,
-        elevation: 0,
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 40, // Adjust height as needed
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Officials' Create New Events",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),

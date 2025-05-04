@@ -14,10 +14,24 @@ class settingsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Settings Page"),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.green,
-        elevation: 0,
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 40, // Adjust height as needed
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Settings",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),
       ),
       body: SingleChildScrollView(
         child: Column(

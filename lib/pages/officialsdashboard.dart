@@ -1,11 +1,12 @@
 import 'dart:async';
-//import 'package:bzu_leads/components/officialBottomNavigator.dart';
-//import 'package:bzu_leads/pages/OfficialNotification.dart';
-//import 'package:bzu_leads/components/official_drawer.dart';
-//import 'package:bzu_leads/pages/chattingGroup_page.dart';
+import 'dart:convert';
+import 'package:bzu_leads/pages/EditActivity.dart';
 import 'package:bzu_leads/pages/OfficialNotification.dart';
+import 'package:bzu_leads/pages/StatisticsDashboard.dart';
 import 'package:bzu_leads/pages/calender.dart';
+import 'package:bzu_leads/pages/chattingGroup_page.dart';
 import 'package:bzu_leads/pages/chatting_page.dart';
+import 'package:bzu_leads/pages/createCostumeGroup.dart';
 import 'package:bzu_leads/pages/createEventOfficials.dart';
 import 'package:bzu_leads/pages/PostFormScreen.dart';
 import 'package:bzu_leads/pages/postsDetails.dart';
@@ -14,14 +15,9 @@ import 'package:bzu_leads/pages/profile_page.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:bzu_leads/services/group_service.dart';
 import 'package:bzu_leads/services/post_service.dart';
-//import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-//import 'dart:convert';
-//import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
-//import 'package:shared_preferences/shared_preferences.dart';
-
 class Officialsdashboard extends StatefulWidget {
   const Officialsdashboard({super.key});
 
@@ -33,6 +29,10 @@ class _Officialsdashboard extends State<Officialsdashboard> {
   List<Map<String, dynamic>> _chatGroups = [];
 String? _currentUserID;
 SharedPreferences? prefs;
+bool _isLoading = true;
+bool _isUniversityAdmin = false;
+int _selectedIndex = 0;
+
 
   List<dynamic> posts = [];
   bool _isDarkMode = false;
@@ -43,26 +43,65 @@ SharedPreferences? prefs;
     const ProfilePage(),
   ];*/
 
-  @override
-  void initState() {
-    super.initState();
-    loadTheme();
-    fetchPosts();
-    _initializePreferences();
-  }
+ @override
+void initState() {
+  super.initState();
+  loadTheme();
+  fetchPosts();
+  _initializePreferences().then((_) {
+    // Optional: ensure initial group list
+    _fetchChatGroups();
+    _loadUserRole();
+  });
+}
+Future<void> _loadUserRole() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  final defaultRole = prefs.getString("defaultRole");
+  setState(() {
+    _isUniversityAdmin = defaultRole == "universityAdministrator";
+  });
+}
+List<String> _roleList = [];
 Future<void> _initializePreferences() async {
   prefs = await SharedPreferences.getInstance();
   _currentUserID = prefs?.getString("universityID");
+
+  // Decode the roles as a list
+  final rolesJson = prefs?.getString("role");
+  if (rolesJson != null) {
+    List<dynamic> decodedRoles = [];
+    try {
+      decodedRoles = rolesJson.contains('[')
+          ? List<String>.from(jsonDecode(rolesJson))
+          : [rolesJson]; // handle string fallback
+    } catch (_) {
+      decodedRoles = [rolesJson]; // Fallback to single string role
+    }
+
+    setState(() {
+      _roleList = decodedRoles.cast<String>();
+    });
+  }
+
   await _fetchChatGroups();
 }
+
+
 
  Future<void> _fetchChatGroups() async {
   if (_currentUserID == null) return;
 
+  try {
   final groups = await GroupService.getChatGroups(_currentUserID!);
   setState(() {
     _chatGroups = groups;
+    _isLoading = false;
   });
+} catch (e) {
+  print("Error loading groups: $e");
+  setState(() => _isLoading = false);
+}
+
 }
 
 
@@ -84,49 +123,32 @@ Future<void> _initializePreferences() async {
     print("Error fetching posts: $e");
   }
 }
-  void _changePage(int index) {
-  if (index == 1) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ProfilePage()),
-    );
-  } else if (index == 2) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const PrivatePosts()),
-    );
-  }else if (index == 3) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) =>  Officialnotification()),
-    );
+Future<void> _onSideNavSelected(int index) async {
+  setState(() => _selectedIndex = index);
+  if (index < _navigationActions.length) {
+    await _navigationActions[index]();
   }
-  else if (index == 4) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) =>  PostFormScreen()),
-    );
-  }else if (index == 5) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) =>  EventFormScreen()),
-    );
-  }else if (index == 6) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) =>  Calender()),
-    );
-  }
-  else if (index == 8) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) =>  settingsPage()),
-    );
-  }
-  // index == 0 is the current dashboard, do nothing
 }
 
+void _onBottomNavSelected(int index) {
+  final isWideScreen = MediaQuery.of(context).size.width >= 900;
 
+  switch (index) {
+    case 0:
+      setState(() => _selectedIndex = 0); // Dashboard
+      break;
+    case 1:
+      if (isWideScreen) {
+        setState(() => _selectedIndex = 1); // Chatting group inline
+      } else {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const ChattingGroupPage()));
+      }
+      break;
+    case 2:
+      Navigator.push(context, MaterialPageRoute(builder: (_) => settingsPage()));
+      break;
+  }
+}
 
   Widget _buildShimmerCard() {
     return Card(
@@ -186,12 +208,11 @@ Future<Size> _getImageSize(String imageUrl) async {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),
+              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),//, postType: 'public',
             ),
           );
         },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -230,7 +251,7 @@ Future<Size> _getImageSize(String imageUrl) async {
               const SizedBox(height: 12),
               if (post['media'] != null && post['media'].isNotEmpty)
   FutureBuilder<Size>(
-    future: _getImageSize("http://localhost/public_html/FlutterGrad/${post['media']}"),
+    future: _getImageSize("http://192.168.10.5/public_html/FlutterGrad/${post['media']}"),
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return Shimmer.fromColors(
@@ -252,7 +273,7 @@ Future<Size> _getImageSize(String imageUrl) async {
           child: AspectRatio(
             aspectRatio: aspectRatio,
             child: Image.network(
-  "http://localhost/public_html/FlutterGrad/${post['media']}",
+  "http://192.168.10.5/public_html/FlutterGrad/${post['media']}",
   fit: BoxFit.contain,
   loadingBuilder: (context, child, loadingProgress) {
     if (loadingProgress == null) return child;
@@ -288,70 +309,168 @@ Future<Size> _getImageSize(String imageUrl) async {
       ),
     );
   }
+List<Future<void> Function()> get _navigationActions {
+  return [
+    () async {
+      // Dashboard (skip since it's inline)
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivatePosts()));
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => OfficialNotification()));
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PostFormScreen()));
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => EventFormScreen()));
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Editactivity(userID: _currentUserID!)));
+    },
+    if (_isUniversityAdmin)
+      () async {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => StatisticsPage()));
+      },
+    () async {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final universityID = prefs.getString("universityID");
+      final defaultRole = prefs.getString("defaultRole");
+
+      final Map<String, int> roleMap = {
+       "official": 1,
+       "academic": 2,
+      "universityAdministrator": 3,
+};
+
+
+      final roleID = roleMap[defaultRole];
+      final userID = int.tryParse(universityID ?? '');
+
+      if (roleID != null && userID != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CreateCustomGroupScreen(
+              createdByUserID: userID,
+              roleID: roleID,
+            ),
+          ),
+        );
+      }
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Calender()));
+    },
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => settingsPage()));
+    },
+  ];
+}
+List<NavigationRailDestination> get _navigationDestinations {
+  return [
+    const NavigationRailDestination(
+      icon: Icon(Icons.dashboard_outlined),
+      label: Text("Dashboard"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.person_2_outlined),
+      label: Text("Profile"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.privacy_tip_outlined),
+      label: Text("Private Posts"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.chat_outlined),
+      label: Text("Notifications"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.post_add),
+      label: Text("Create new Posts"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.create_outlined),
+      label: Text("Create new Events"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.edit_note),
+      label: Text("Edit Events"),
+    ),
+    if (_isUniversityAdmin)
+      const NavigationRailDestination(
+        icon: Icon(Icons.rate_review),
+        label: Text("Statistics"),
+      ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.group_add),
+      label: Text("Costume Groups"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.calendar_month_rounded),
+      label: Text("Calender"),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.settings),
+      label: Text("Settings"),
+    ),
+  ];
+}
 
   Widget _buildSideNav() {
-  return NavigationRail(
-    selectedIndex: 0, // Always highlight Dashboard
-    onDestinationSelected: _changePage,
-    labelType: NavigationRailLabelType.all,
-    backgroundColor: Colors.white,
-    destinations: const [
-      NavigationRailDestination(
-        icon: Icon(Icons.dashboard_outlined),
-        label: Text("Dashboard"),
+  return SingleChildScrollView(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: 0,
+        maxHeight: MediaQuery.of(context).size.height,
       ),
-      NavigationRailDestination(
-        icon: Icon(Icons.person_2_outlined),
-        label: Text("Profile"),
+      child: IntrinsicHeight(
+        child: NavigationRail(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _onSideNavSelected,
+          labelType: NavigationRailLabelType.all,
+          backgroundColor: Colors.white,
+          destinations: _navigationDestinations,
+        ),
       ),
-      NavigationRailDestination(
-        icon: Icon(Icons.privacy_tip_outlined),
-        label: Text("Private Posts"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.chat_outlined),
-        label: Text("Notifications"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.post_add),
-        label: Text("Create new Posts"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.create_outlined),
-        label: Text("Create new Events"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.calendar_month_rounded),
-        label: Text("Calender"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.group_add),
-        label: Text("Create Group"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text("Settings"),
-      ),
-    ],
+    ),
   );
 }
+
   @override
   Widget build(BuildContext context) {
     final bool isWideScreen = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
-      backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.grey[100],
       appBar: AppBar(
-        title: const Text("Officials' Public Posts"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.green,
-        elevation: 1,
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 40, // Adjust height as needed
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Officials' Dashboard",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),
         actions: isWideScreen
             ? null
             : [
                 PopupMenuButton<int>(
                   icon: const Icon(Icons.menu),
-                  onSelected: _changePage,
+                  onSelected: _onBottomNavSelected,
                   itemBuilder: (context) => [
                     const PopupMenuItem(value: 0, child: Text("Dashboard")),
                     const PopupMenuItem(value: 1, child: Text("Chat")),
@@ -403,8 +522,10 @@ Future<Size> _getImageSize(String imageUrl) async {
   title: Text("My Communities"),
 ),
 Expanded(
-  child: _chatGroups.isEmpty
-      ? Center(child: CircularProgressIndicator())
+  child:_isLoading
+  ? const Center(child: CircularProgressIndicator())
+  : _chatGroups.isEmpty
+    ? const Center(child: Text("No groups found"))
       : ListView.builder(
           itemCount: _chatGroups.length,
           itemBuilder: (context, index) {
@@ -461,7 +582,7 @@ Expanded(
       bottomNavigationBar: isWideScreen
     ? null
     : BottomNavigationBar(
-        onTap: _changePage,
+        onTap: _onBottomNavSelected,
         currentIndex: 0, // Always show Dashboard as selected
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
@@ -469,7 +590,49 @@ Expanded(
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
+      
+      floatingActionButton: (_roleList.contains("academic") || _roleList.contains("official")) && MediaQuery.of(context).size.width > 900
+    ? FloatingActionButton(
+        onPressed: _createGroups,
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.group_add),
+        
+      )
+    : null,
+    
+    );
+    
+  }
+   
+bool _isCreating = false;
+  Future<void> _createGroups() async {
+  if (_isCreating) return; // Prevent double-tap
 
+  setState(() {
+    _isCreating = true;
+  });
+
+if (_currentUserID != null && (_roleList.contains("academic") || _roleList.contains("official"))) {
+    final response = await GroupService.createGroups(_currentUserID!, _roleList.last);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(response['message'] ?? "Something happened")),
+    );
+
+    if (response['success']) {
+      await _fetchChatGroups();
+    }
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Only academics and officials can create groups")),
     );
   }
+
+  setState(() {
+    _isCreating = false;
+  });
+}
+
+
+
 }

@@ -8,7 +8,7 @@ class PostService {
     if (kIsWeb) {
       response = await http.get(Uri.parse('http://localhost/public_html/FlutterGrad/getPublicPosts.php'));
     } else {
-      response = await http.get(Uri.parse('http://192.168.10.4/public_html/FlutterGrad/getPublicPosts.php'));
+      response = await http.get(Uri.parse('http://192.168.10.5/public_html/FlutterGrad/getPublicPosts.php'));
     }
 
     if (response.statusCode == 200) {

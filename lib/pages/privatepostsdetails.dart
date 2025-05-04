@@ -7,16 +7,16 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 
-class Postsdetails extends StatefulWidget {
+class PrivatePostDetailsState extends StatefulWidget {
   final int postID;
 
-  const Postsdetails({super.key, required this.postID});
+  const PrivatePostDetailsState({super.key, required this.postID});
 
   @override
-  _PostsDetailsPageState createState() => _PostsDetailsPageState();
+  _PrivatePostDetailsState createState() => _PrivatePostDetailsState();
 }
 
-class _PostsDetailsPageState extends State<Postsdetails> {
+class _PrivatePostDetailsState extends State<PrivatePostDetailsState> {
   Map<String, dynamic>? post;
   late Future<List<Comment>> _commentsFuture;
 
@@ -29,7 +29,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
 
   Future<void> fetchPostById() async {
     final response = await http.get(Uri.parse(
-        'http://192.168.10.5/public_html/FlutterGrad/postsDetails.php?postID=${widget.postID}'));
+        'http://192.168.10.5/public_html/FlutterGrad/privatepostsdetails.php?postID=${widget.postID}'));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -46,7 +46,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
     required int commentCreatorID,
     required String commentText,
   }) async {
-    final url = Uri.parse('http://192.168.10.5/public_html/FlutterGrad/insertComment.php');
+    final url = Uri.parse('http://192.168.10.5/public_html/FlutterGrad/insertCommentPrivate.php');
     final response = await http.post(
       url,
       body: {
@@ -70,7 +70,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
     }
   }
 Future<List<Comment>> fetchComments(int postID) async {
-  final url = Uri.parse("http://192.168.10.5/public_html/FlutterGrad/getComments.php?postID=$postID");
+  final url = Uri.parse("http://192.168.10.5/public_html/FlutterGrad/getCommentsPrivate.php?postID=$postID");
   final response = await http.get(url);
 
   if (response.statusCode == 200) {
@@ -84,8 +84,6 @@ Future<List<Comment>> fetchComments(int postID) async {
   }
   return [];
 }
-
-
 
   @override
   Widget build(BuildContext context) {

@@ -1,15 +1,8 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-void main() {
-  runApp(MaterialApp(home: PostFormScreen()));
-}
-
 class PostFormScreen extends StatefulWidget {
   @override
   _PostFormScreenState createState() => _PostFormScreenState();
@@ -33,37 +26,14 @@ class _PostFormScreenState extends State<PostFormScreen> {
   Future<void> _loadUserData() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   String? storedUserId = prefs.getString("universityID");
+  String? storedFacultyId = prefs.getString("facultyID");
 
-  if (storedUserId != null) {
-    if (!mounted) return;
-    setState(() {
-      _userId = storedUserId;
-    });
-    await _fetchFacultyId(storedUserId.toString());
-  }
+  if (!mounted) return;
+  setState(() {
+    _userId = storedUserId;
+    _facultyId = storedFacultyId != null ? int.tryParse(storedFacultyId) : null;
+  });
 }
-
-
-  Future<void> _fetchFacultyId(String userId) async {
-  try {
-    final response = await http.get(
-      Uri.parse("http://localhost/public_html/FlutterGrad/getInformation.php?universityID=$userId"),
-    );
-
-    if (response.statusCode == 200) {
-      var data = jsonDecode(response.body);
-      if (data["success"] == true) {
-        if (!mounted) return; 
-        setState(() {
-          _facultyId = data["data"]["facultyID"];
-        });
-      }
-    }
-  } catch (e) {
-    print("Error fetching faculty ID: $e");
-  }
-}
-
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -92,8 +62,8 @@ Future<void> _submitPost() async {
   }
 
   String apiUrl = _postType == "public"
-      ? "http://localhost/public_html/FlutterGrad/add_public_post.php"
-      : "http://localhost/public_html/FlutterGrad/add_private_post.php";
+      ? "http://192.168.10.5/public_html/FlutterGrad/add_public_post.php"
+      : "http://192.168.10.5/public_html/FlutterGrad/add_private_post.php";
 
   var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
   request.fields["POSTCREATORID"] = _userId.toString();
@@ -138,7 +108,25 @@ Future<void> _submitPost() async {
   @override
   Widget build(BuildContext context) {
    return Scaffold(
-  appBar: AppBar(title: Text("Create Post")),
+  appBar: AppBar(
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 40, // Adjust height as needed
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Posts' Form",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),),
   resizeToAvoidBottomInset: true,  // Prevent overflow when keyboard appears
   body: SingleChildScrollView(
     child: Padding(

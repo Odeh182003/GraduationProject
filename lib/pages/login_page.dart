@@ -24,7 +24,7 @@ Future<void> login() async {
     if(kIsWeb){
       url = Uri.parse("http://localhost/public_html/FlutterGrad/login.php");
     } else {
-      url = Uri.parse("http://192.168.10.4/public_html/FlutterGrad/login.php");
+      url = Uri.parse("http://192.168.10.5/public_html/FlutterGrad/login.php");
     }
   var response = await http.post(
     url,
@@ -44,7 +44,10 @@ Future<void> login() async {
     await prefs.setString("role", jsonEncode(data['roles']));
     await prefs.setString("universityID", _uniID.text);
     await prefs.setString("password", _password.text);
-
+    await prefs.setString("defaultRole", data['defaultRole']);
+    await prefs.setString("facultyID", data['facultyID'].toString());
+print("Saved role JSON: ${jsonEncode(data['roles'])}"); // 👈 Print role
+  print("Default role: ${data['defaultRole']}");    
     // Store section IDs for student roles
     if (data['studentData'] != null) {
       List<String> sectionIDs = List<String>.from(data['studentData']['sectionIDs'] ?? []);
@@ -62,25 +65,28 @@ Future<void> login() async {
       await prefs.setStringList("officialClubs", officialClubs.map((club) => jsonEncode(club)).toList());
     }
 
-    // Navigate based on the default role
     String defaultRole = data['defaultRole'];
-    if (defaultRole == "official") {
-      Navigator.pushReplacementNamed(context, "/official_dashboard");
-    } else if (defaultRole == "student") {
-      Navigator.pushReplacementNamed(context, "/student_dashboard");
-    }else if(defaultRole == "academic"){
-      Navigator.pushReplacementNamed(context, "/academic_dashboard");    }
-     else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid role")),
-      );
-    }
+
+// Treat university admin as a special type of official
+if (defaultRole == "official" || defaultRole == "universityAdministrator") {
+  Navigator.pushReplacementNamed(context, "/official_dashboard");
+} else if (defaultRole == "student") {
+  Navigator.pushReplacementNamed(context, "/student_dashboard");
+} else if (defaultRole == "academic") {
+  Navigator.pushReplacementNamed(context, "/academic_dashboard");
+} else {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text("Invalid role")),
+  );
+}
+
   } else {
+    String errorMessage = data['message'] ?? "Login failed. Please try again.";
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Login failed"),
-        content: const Text("Check your credentials."),
+        title: const Text("Login Failed"),
+        content: Text(errorMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -91,7 +97,6 @@ Future<void> login() async {
     );
   }
 }
-
 
  @override
   Widget build(BuildContext context) {

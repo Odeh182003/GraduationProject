@@ -51,7 +51,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> getUserData() async {
     if (userID == null) return;
 
-    final url = Uri.parse("http://localhost/public_html/FlutterGrad/getInformation.php?universityID=$userID");
+    final url = Uri.parse("http://192.168.10.5/public_html/FlutterGrad/getInformation.php?universityID=$userID");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -112,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse("http://localhost/public_html/FlutterGrad/updateUserInformation.php"),
+      Uri.parse("http://192.168.10.5/public_html/FlutterGrad/updateUserInformation.php"),
     );
 
     request.fields['universityID'] = userID!;
@@ -150,7 +150,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String fixImageUrl(String imageUrl) {
     String baseUrl = kIsWeb
         ? "http://localhost/public_html/FlutterGrad/"
-        : "http://192.168.10.4/public_html/FlutterGrad/";
+        : "http://192.168.10.5/public_html/FlutterGrad/";
 
     if (!imageUrl.startsWith("http")) {
       return "$baseUrl${imageUrl.replaceAll("\\", "/")}";
@@ -173,10 +173,24 @@ Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text("Profile"),//$username
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.green,
-        elevation: 0,
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 40, // Adjust height as needed
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Profile Page",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),

@@ -3,11 +3,14 @@ import 'dart:async';
 
 //import 'package:bzu_leads/components/officialBottomNavigator.dart';
 //import 'package:bzu_leads/pages/chattingGroup_page.dart';
+import 'package:bzu_leads/pages/RejectedPostsPage.dart';
 import 'package:bzu_leads/pages/chatting_page.dart';
+import 'package:bzu_leads/pages/participate.dart';
 //import 'package:bzu_leads/pages/createPostsStudents.dart';
 import 'package:bzu_leads/pages/private_posts.dart';
 import 'package:bzu_leads/pages/profile_page.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
+import 'package:bzu_leads/pages/studentCreatePosts.dart';
 import 'package:bzu_leads/services/group_service.dart';
 import 'package:bzu_leads/services/post_service.dart';
 //import 'package:flutter/foundation.dart';
@@ -92,17 +95,25 @@ Future<void> _initializePreferences() async {
       context,
       MaterialPageRoute(builder: (context) => const PrivatePosts()),
     );
-  }/*else if (index == 3) {
+  }else if (index == 3) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) =>  PostFormScreen()),
+      MaterialPageRoute(builder: (context) =>  Studentcreateposts()),
     );
   }else if (index == 4) {
+    if (_currentUserID != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => Participate(userID: _currentUserID!)),
+      );
+    } 
+  }
+  else if (index == 5) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) =>  EventFormScreen()),
+      MaterialPageRoute(builder: (context) =>  RejectedPostsPage()),
     );
-  }*/else if (index == 6) {
+  }else if (index == 7) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) =>  settingsPage()),
@@ -171,7 +182,7 @@ Future<Size> _getImageSize(String imageUrl) async {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),
+              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),//, postType: 'public',
             ),
           );
         },
@@ -215,7 +226,7 @@ Future<Size> _getImageSize(String imageUrl) async {
               const SizedBox(height: 12),
               if (post['media'] != null && post['media'].isNotEmpty)
   FutureBuilder<Size>(
-    future: _getImageSize("http://localhost/public_html/FlutterGrad/${post['media']}"),
+    future: _getImageSize("http://192.168.10.5/public_html/FlutterGrad/${post['media']}"),
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return Shimmer.fromColors(
@@ -237,7 +248,7 @@ Future<Size> _getImageSize(String imageUrl) async {
           child: AspectRatio(
             aspectRatio: aspectRatio,
             child: Image.network(
-  "http://localhost/public_html/FlutterGrad/${post['media']}",
+  "http://192.168.10.5/public_html/FlutterGrad/${post['media']}",
   fit: BoxFit.contain,
   loadingBuilder: (context, child, loadingProgress) {
     if (loadingProgress == null) return child;
@@ -275,58 +286,88 @@ Future<Size> _getImageSize(String imageUrl) async {
   }
 
   Widget _buildSideNav() {
-  return NavigationRail(
-    selectedIndex: 0, // Always highlight Dashboard
-    onDestinationSelected: _changePage,
-    labelType: NavigationRailLabelType.all,
-    backgroundColor: Colors.white,
-    destinations: const [
-      NavigationRailDestination(
-        icon: Icon(Icons.dashboard_outlined),
-        label: Text("Dashboard"),
+  return Container(
+    color: Colors.white, // Full white background
+    height: double.infinity, // Fill screen vertically
+    child: SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: 0,
+          maxHeight: double.infinity,
+        ),
+        child: IntrinsicHeight(
+          child: NavigationRail(
+            selectedIndex: 0, // Always highlight Dashboard
+            onDestinationSelected: _changePage,
+            labelType: NavigationRailLabelType.all,
+            backgroundColor: Colors.white,
+            destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                label: Text("Dashboard"),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.person_2_outlined),
+                label: Text("Profile"),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.privacy_tip_outlined),
+                label: Text("Private Posts"),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.post_add),
+                label: Text("Create new Posts"),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.create_outlined),
+                label: Text("Participate in Events"),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.recycling),
+                label: Text("Rejected Posts"),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.calendar_month_rounded),
+                label: Text("Calender"),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.settings),
+                label: Text("Settings"),
+              ),
+            ],
+          ),
+        ),
       ),
-      NavigationRailDestination(
-        icon: Icon(Icons.person_2_outlined),
-        label: Text("Profile"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.privacy_tip_outlined),
-        label: Text("Private Posts"),
-      ),
-      /*NavigationRailDestination(
-        icon: Icon(Icons.chat_outlined),
-        label: Text("Chat"),
-      ),*/
-      NavigationRailDestination(
-        icon: Icon(Icons.post_add),
-        label: Text("Create new Posts"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.create_outlined),
-        label: Text("Participate in Events"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.calendar_month_rounded),
-        label: Text("Calender"),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text("Settings"),
-      ),
-    ],
+    ),
   );
 }
+
   @override
   Widget build(BuildContext context) {
     final bool isWideScreen = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
       backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.grey[100],
+     // backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text("Academics' Public Posts"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.green,
-        elevation: 1,
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 40, // Adjust height as needed
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Students' Dashboard",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),
         actions: isWideScreen
             ? null
             : [
@@ -376,6 +417,7 @@ Future<Size> _getImageSize(String imageUrl) async {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 color: Colors.white,
+                
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
