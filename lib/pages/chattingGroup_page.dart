@@ -19,6 +19,7 @@ class _ChattingGroupPageState extends State<ChattingGroupPage> {
   String? _currentUserID;
   String? _role;
   SharedPreferences? _prefs;
+  bool _isLoading = true; // Add loading state
 
   @override
   void initState() {
@@ -32,32 +33,34 @@ class _ChattingGroupPageState extends State<ChattingGroupPage> {
   }
 
   Future<void> _loadCurrentUser() async {
-  final universityID = _prefs?.getString("universityID");
-  final roleJson = _prefs?.getString("role");
+    final universityID = _prefs?.getString("universityID");
+    final roleJson = _prefs?.getString("role");
 
-  if (universityID != null && roleJson != null) {
-    final decodedRoles = List<String>.from(jsonDecode(roleJson));
+    if (universityID != null && roleJson != null) {
+      final decodedRoles = List<String>.from(jsonDecode(roleJson));
 
-    setState(() {
-      _currentUserID = universityID;
-      _role = decodedRoles.contains("academic")
-          ? "academic"
-          : decodedRoles.contains("official")
-              ? "official"
-              : null;
-    });
-             print("Decoded Roles: $decodedRoles");
-    _fetchGroups();
+      setState(() {
+        _currentUserID = universityID;
+        _role = decodedRoles.contains("academic")
+            ? "academic"
+            : decodedRoles.contains("official")
+                ? "official"
+                : null;
+      });
+      print("Decoded Roles: $decodedRoles");
+      _fetchGroups();
+    }
   }
-}
-
 
   Future<void> _fetchGroups() async {
     if (_currentUserID == null) return;
-
+    setState(() {
+      _isLoading = true;
+    });
     final groups = await GroupService.getChatGroups(_currentUserID!);
     setState(() {
       _groups = groups;
+      _isLoading = false;
     });
   }
 bool _isCreating = false;
@@ -114,17 +117,36 @@ Widget build(BuildContext context) {
     ],
   ),
     ),
-    body: ListView.builder(
-      itemCount: _groups.length,
-      itemBuilder: (context, index) {
-        final group = _groups[index];
-        return ListTile(
-          title: Text(group['groupName']),
-          subtitle: Text('Group ID: ${group['groupID']}'),
-          onTap: () => _navigateToChattingPage(group),
-        );
-      },
-    ),
+    body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _groups.isEmpty
+              ? const Center(
+                  child: Text(
+                    "No Groups found",
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _groups.length,
+                  itemBuilder: (context, index) {
+                    final group = _groups[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 3,
+                      child: ListTile(
+                        title: Text(
+                          group['groupName'],
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        onTap: () => _navigateToChattingPage(group),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 18, color: Colors.green),
+                      ),
+                    );
+                  },
+                ),
     floatingActionButton: (_role == "academic" || _role == "official")
         ? FloatingActionButton(
             onPressed: createGroups,
@@ -155,7 +177,7 @@ void _navigateToChattingPage(Map<String, dynamic> group) {
   );
 }
 
- /* Widget _buildGroupListItem(Map<String, dynamic> group) {
+/* Widget _buildGroupListItem(Map<String, dynamic> group) {
     return UserTile(
       text: group['groupName'],
       onTap: () async {

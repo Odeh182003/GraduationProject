@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:file_picker/file_picker.dart';
 
 class Studentcreateposts extends StatefulWidget {
   const Studentcreateposts({super.key});
@@ -17,7 +18,8 @@ class _Studentcreateposts extends State<Studentcreateposts> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   String _postType = 'public';
-  File? _selectedImage;
+  List<File> _selectedImages = []; // Allow multiple images
+  List<File> _selectedFiles = []; // <-- Add this for attachments
   String? _userId;
   int? _facultyId;
   int? _selectedApproverId;
@@ -39,13 +41,14 @@ class _Studentcreateposts extends State<Studentcreateposts> {
 
   Future<void> _fetchApprovers() async {
     if (_facultyId == null || _userId == null) return;
+
     Uri uri;
-    if(kIsWeb){
+    if (kIsWeb) {
       uri = Uri.parse("http://localhost/public_html/FlutterGrad/getApprovers.php");
     } else {
-      uri = Uri.parse("http://172.19.20.206/public_html/FlutterGrad/getApprovers.php");
+      uri = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getApprovers.php");
     }
-     uri = Uri.parse(uri.toString()).replace(queryParameters: {
+    uri = Uri.parse(uri.toString()).replace(queryParameters: {
       "postType": _postType,
       "facultyID": _facultyId.toString(),
       "studentID": _userId!
@@ -58,11 +61,13 @@ class _Studentcreateposts extends State<Studentcreateposts> {
         if (data["success"] == true) {
           setState(() {
             _approvers = List<Map<String, dynamic>>.from(data["data"]);
-            _selectedApproverId = null;
+            _selectedApproverId = null; // Reset selected approver
           });
         } else {
           print("Fetch failed: ${data['message']}");
         }
+      } else {
+        print("Failed to fetch approvers: ${response.statusCode}");
       }
     } catch (e) {
       print("Error loading approvers: $e");
@@ -71,66 +76,96 @@ class _Studentcreateposts extends State<Studentcreateposts> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+    final pickedFiles = await picker.pickMultiImage(); // Allow multiple image selection
+    setState(() {
+      _selectedImages = pickedFiles.map((file) => File(file.path)).toList();
+    });
+  }
+
+  Future<void> _pickFiles() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: false,
+      );
+      if (result != null) {
+        setState(() {
+          _selectedFiles = result.paths
+              .where((path) => path != null)
+              .map((path) => File(path!))
+              .toList();
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error picking files: $e")),
+      );
     }
   }
 
-Future<void> _submitPost() async {
-  if (_titleController.text.isEmpty || _contentController.text.isEmpty || _userId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Please fill all required fields.")));
-    return;
-  }
-
-  final url = _postType == 'public'
-      ? "http://localhost/public_html/FlutterGrad/studentPublicPost.php"
-      : "http://localhost/public_html/FlutterGrad/studentPrivatePost.php";
-
-  String? base64Image;
-  if (_selectedImage != null) {
-    List<int> imageBytes = await _selectedImage!.readAsBytes();
-    base64Image = base64Encode(imageBytes);
-  }
-
-  Map<String, dynamic> jsonBody = {
-    "POSTCREATORID": int.parse(_userId!),
-    "posttitle": _titleController.text,
-    "CONTENT": _contentController.text,
-    "REVIEWEDBY": _selectedApproverId,
-    "media": base64Image,  // Send the base64 encoded image data
-  };
-
-  if (_postType == "private") {
-    jsonBody["facultyID"] = _facultyId;
-  }
-
-  try {
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(jsonBody),
-    );
-
-    final responseData = jsonDecode(response.body);
-    if (response.statusCode == 200 && responseData["success"] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Post submitted successfully!")));
-      _titleController.clear();
-      _contentController.clear();
-      setState(() {
-        _selectedImage = null;
-        _selectedApproverId = null;
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: ${responseData['message']}")));
+  Future<void> _submitPost() async {
+    if (_titleController.text.isEmpty || _contentController.text.isEmpty || _userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Please fill all required fields.")));
+      return;
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error submitting post.")));
-  }
-}
 
+    if (_selectedApproverId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Please select an approver.")));
+      return;
+    }
+
+    final url = "http://192.168.10.3/public_html/FlutterGrad/studentPost.php";
+
+    var request = http.MultipartRequest('POST', Uri.parse(url));
+    request.fields["POSTCREATORID"] = _userId!;
+    request.fields["posttitle"] = _titleController.text;
+    request.fields["CONTENT"] = _contentController.text;
+    request.fields["REVIEWEDBY"] = _selectedApproverId.toString();
+    request.fields["postType"] = _postType;
+
+    if (_postType == "private") {
+      if (_facultyId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Faculty ID not found. Please re-login.")));
+        return;
+      }
+      request.fields["facultyID"] = _facultyId.toString();
+    }
+
+    // Add images as media[]
+    for (var image in _selectedImages) {
+      request.files.add(await http.MultipartFile.fromPath('media[]', image.path));
+    }
+
+    // Add attachments as media[]
+    for (var file in _selectedFiles) {
+      request.files.add(await http.MultipartFile.fromPath('media[]', file.path));
+    }
+
+    try {
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      print("Backend response: ${response.body}");
+
+      final responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData["success"] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Post submitted successfully!")));
+        _titleController.clear();
+        _contentController.clear();
+        setState(() {
+          _selectedImages = [];
+          _selectedFiles = [];
+          _selectedApproverId = null;
+        });
+      } else {
+        print("Submission failed: ${responseData['message']}");
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: ${responseData['message']}")));
+      }
+    } catch (e) {
+      print("Error submitting post: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error submitting post.")));
+    }
+  }
 
   void _onPostTypeChanged(String? newValue) {
     if (newValue != null && newValue != _postType) {
@@ -147,87 +182,215 @@ Future<void> _submitPost() async {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-  backgroundColor: Colors.white,
-  foregroundColor: Colors.green,
-  elevation: 1,
-  title: Row(
-    children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
-      ),
-      const SizedBox(width: 8), // Space between image and text
-      const Text(
-        "Student Create Post",
-        style: TextStyle(
-          color: Colors.green, // Ensure text color matches your theme
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.green,
+        elevation: 1,
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              height: 40, // Adjust height as needed
+            ),
+            const SizedBox(width: 8), // Space between image and text
+            const Text(
+              "Student Create Post",
+              style: TextStyle(
+                color: Colors.green, // Ensure text color matches your theme
+              ),
+            ),
+          ],
         ),
-      ),
-    ],
-  ),
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(controller: _titleController, decoration: InputDecoration(labelText: "Post Title")),
-            SizedBox(height: 16),
-            TextField(
-              controller: _contentController,
-              maxLines: 5,
-              decoration: InputDecoration(labelText: "Content"),
-            ),
-            SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _pickImage,
-              icon: Icon(Icons.image),
-              label: Text("Pick Image"),
-            ),
-            if (_selectedImage != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Image.file(_selectedImage!, height: 150),
-              ),
-            SizedBox(height: 20),
-            Row(
+        child: Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Post Type: "),
-                Radio<String>(
-                  value: "public",
-                  groupValue: _postType,
-                  onChanged: _onPostTypeChanged,
+                Text("Create a New Post", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
+                SizedBox(height: 24),
+                TextField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    labelText: "Post Title",
+                    prefixIcon: Icon(Icons.title),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-                Text("Public"),
-                Radio<String>(
-                  value: "private",
-                  groupValue: _postType,
-                  onChanged: _onPostTypeChanged,
+                SizedBox(height: 20),
+                TextField(
+                  controller: _contentController,
+                  maxLines: 6,
+                  decoration: InputDecoration(
+                    labelText: "Content",
+                    alignLabelWithHint: true,
+                    prefixIcon: Icon(Icons.description),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-                Text("Private"),
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Images", style: TextStyle(fontWeight: FontWeight.w600)),
+                    ElevatedButton.icon(
+                      onPressed: _pickImage,
+                      icon: Icon(Icons.image, color: Colors.white),
+                      label: Text("Pick Images", style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                if (_selectedImages.isNotEmpty)
+                  Container(
+                    height: 110,
+                    margin: EdgeInsets.only(top: 10, bottom: 10),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _selectedImages.length,
+                      separatorBuilder: (_, __) => SizedBox(width: 10),
+                      itemBuilder: (context, idx) {
+                        final image = _selectedImages[idx];
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.file(image, height: 100, width: 100, fit: BoxFit.cover),
+                            ),
+                            Positioned(
+                              top: 2,
+                              right: 2,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedImages.removeAt(idx);
+                                  });
+                                },
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: Colors.white,
+                                  child: Icon(Icons.cancel, color: Colors.red, size: 18),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                // --- Attachments section ---
+                SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Attachments", style: TextStyle(fontWeight: FontWeight.w600)),
+                    ElevatedButton.icon(
+                      onPressed: _pickFiles,
+                      icon: Icon(Icons.attach_file, color: Colors.white),
+                      label: Text("Pick Files", style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                if (_selectedFiles.isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: _selectedFiles.map((file) => ListTile(
+                      leading: Icon(Icons.insert_drive_file, color: Colors.green),
+                      title: Text(file.path.split('/').last),
+                      trailing: IconButton(
+                        icon: Icon(Icons.cancel, color: Colors.red),
+                        onPressed: () {
+                          setState(() {
+                            _selectedFiles.remove(file);
+                          });
+                        },
+                      ),
+                    )).toList(),
+                  ),
+                SizedBox(height: 10),
+                Divider(height: 32),
+                Text("Post Type", style: TextStyle(fontWeight: FontWeight.w600)),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text("Public"),
+                      selected: _postType == "public",
+                      selectedColor: Colors.green.shade100,
+                      onSelected: (selected) {
+                        if (selected) _onPostTypeChanged("public");
+                      },
+                      labelStyle: TextStyle(color: _postType == "public" ? Colors.green : Colors.black),
+                    ),
+                    SizedBox(width: 12),
+                    ChoiceChip(
+                      label: Text("Private"),
+                      selected: _postType == "private",
+                      selectedColor: Colors.green.shade100,
+                      onSelected: (selected) {
+                        if (selected) _onPostTypeChanged("private");
+                      },
+                      labelStyle: TextStyle(color: _postType == "private" ? Colors.green : Colors.black),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 24),
+                Text("Select Approver", style: TextStyle(fontWeight: FontWeight.w600)),
+                SizedBox(height: 8),
+                _approvers.isEmpty
+                    ? Center(child: CircularProgressIndicator())
+                    : DropdownButtonFormField<int>(
+                        value: _selectedApproverId,
+                        decoration: InputDecoration(
+                          labelText: "Approver",
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          prefixIcon: Icon(Icons.person_search),
+                        ),
+                        items: _approvers.map((approver) {
+                          return DropdownMenuItem<int>(
+                            value: approver["id"],
+                            child: Text(approver["name"]),
+                          );
+                        }).toList(),
+                        onChanged: (value) => setState(() => _selectedApproverId = value),
+                      ),
+                SizedBox(height: 32),
+                Center(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _submitPost,
+                      icon: Icon(Icons.send, color: Colors.white),
+                      label: Text("Submit Post", style: TextStyle(fontSize: 18, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: Size.fromHeight(50),
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 2,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-            SizedBox(height: 16),
-            _approvers.isEmpty
-                ? Center(child: CircularProgressIndicator())
-                : DropdownButtonFormField<int>(
-                    value: _selectedApproverId,
-                    decoration: InputDecoration(labelText: "Select Approver"),
-                    items: _approvers.map((approver) {
-                      return DropdownMenuItem<int>(
-                        value: approver["id"],
-                        child: Text(approver["name"]),
-                      );
-                    }).toList(),
-                    onChanged: (value) => setState(() => _selectedApproverId = value),
-                  ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submitPost,
-              style: ElevatedButton.styleFrom(minimumSize: Size.fromHeight(45)),
-              child: Text("Submit Post"),
-            ),
-          ],
+          ),
         ),
       ),
     );

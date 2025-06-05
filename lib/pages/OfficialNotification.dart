@@ -1,12 +1,11 @@
 import 'dart:async';
-
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
-
-import 'package:bzu_leads/pages/profile_page.dart';
-import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:shimmer/shimmer.dart';
 
 class OfficialNotification extends StatefulWidget {
@@ -17,9 +16,9 @@ class OfficialNotification extends StatefulWidget {
 }
 
 class _OfficialNotificationState extends State<OfficialNotification> {
-  //int _selectedIndex = 0;
   List posts = [];
   String? userId;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -35,12 +34,15 @@ class _OfficialNotificationState extends State<OfficialNotification> {
       await _fetchPendingPosts(userId!);
     } else {
       print("User ID not found.");
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _fetchPendingPosts(String userId) async {
     final response = await http.get(
-      Uri.parse('http://192.168.10.5/public_html/FlutterGrad/get_pending_posts.php?reviewerId=$userId'),
+      Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_pending_posts.php?reviewerId=$userId'),
     );
 
     if (response.statusCode == 200) {
@@ -48,17 +50,24 @@ class _OfficialNotificationState extends State<OfficialNotification> {
         final data = json.decode(response.body);
         setState(() {
           posts = data;
+          _isLoading = false;
         });
       } catch (e) {
         print("Error decoding JSON: $e");
+        setState(() {
+          _isLoading = false;
+        });
       }
     } else {
       print("Failed to fetch posts: ${response.statusCode}");
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _handlePostAction(String postId, String postType, String action) async {
-    final url = 'http://192.168.10.5/public_html/FlutterGrad/$action.php';
+    final url = 'http://192.168.10.3/public_html/FlutterGrad/$action.php';
     if (userId == null) return;
 
     try {
@@ -85,17 +94,6 @@ class _OfficialNotificationState extends State<OfficialNotification> {
     }
   }
 
-  /*void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    if (index == 2) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
-    }
-  }*/
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,53 +117,39 @@ class _OfficialNotificationState extends State<OfficialNotification> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const settingsPage())),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              if (userId != null) {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("User ID not found. Please log in again.")),
-                );
-              }
-            },
-          ),
-        ],
+        
       ),
-      body: posts.isEmpty
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                return NotificationCard(
-                  title: post['posttitle'] ?? '',
-                  content: post['CONTENT'] ?? '',
-                  creatorID: post['POSTCREATORID']?.toString() ?? '',
-                  postID: post['POSTID']?.toString() ?? '',
-                  postType: post['POSTTYPE'] ?? 'public',
-                  mediaUrl: post['media'] ?? '', // Pass media URL
-                  onApprove: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'approve'),
-                  onReject: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'reject'),
-                );
-              },
-            ),
+          : posts.isEmpty
+              ? const Center(child: Text("No new Notification", style: TextStyle(fontSize: 18, color: Colors.grey)))
+              : ListView.builder(
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return NotificationCard(
+                      title: post['posttitle'] ?? '',
+                      content: post['CONTENT'] ?? '',
+                      creatorID: post['POSTCREATORID']?.toString() ?? '',
+                      postID: post['POSTID']?.toString() ?? '',
+                      postType: post['POSTTYPE']?.toString() ?? '',
+                      mediaList: post['media'] is List ? List<String>.from(post['media']) : [],
+                      onApprove: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'approve'),
+                      onReject: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'reject'),
+                    );
+                  },
+                ),
     );
   }
 }
+
 class NotificationCard extends StatelessWidget {
   final String title;
   final String content;
   final String creatorID;
   final String postID;
   final String postType;
-  final String mediaUrl;
+  final List<String> mediaList; // <-- changed from mediaUrl
   final VoidCallback onApprove;
   final VoidCallback onReject;
 
@@ -176,105 +160,201 @@ class NotificationCard extends StatelessWidget {
     required this.creatorID,
     required this.postID,
     required this.postType,
-    required this.mediaUrl,
+    required this.mediaList,
     required this.onApprove,
     required this.onReject,
   });
 
-  // Function to get image size
-  Future<Size> _getImageSize(String imageUrl) async {
-    final image = NetworkImage(imageUrl);
-    final configuration = ImageConfiguration();
-    final imageStream = image.resolve(configuration);
-    final completer = Completer<ImageInfo>();
-    imageStream.addListener(ImageStreamListener((info, _) {
-      completer.complete(info);
-    }));
-    final imageInfo = await completer.future;
-    return Size(imageInfo.image.width.toDouble(), imageInfo.image.height.toDouble());
+  bool _isImage(String path) {
+    final ext = path.toLowerCase();
+    return ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png') || ext.endsWith('.gif') || ext.endsWith('.bmp') || ext.endsWith('.webp');
+  }
+
+  Future<void> _downloadAndOpenFile(BuildContext context, String url, String fileName) async {
+    try {
+      Directory? downloadsDir;
+      try {
+        downloadsDir = await getDownloadsDirectory();
+      } catch (e) {
+        downloadsDir = await getApplicationDocumentsDirectory();
+      }
+      if (downloadsDir == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Cannot access downloads directory.")),
+        );
+        return;
+      }
+      final savePath = "${downloadsDir.path}/$fileName";
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final file = File(savePath);
+        await file.writeAsBytes(response.bodyBytes);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Downloaded to $savePath")),
+        );
+        try {
+          await OpenFile.open(savePath);
+        } catch (_) {}
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to download file (status ${response.statusCode}).")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error downloading file: $e")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    String fullMediaUrl = 'http://192.168.10.5/public_html/FlutterGrad/$mediaUrl'; // Full image URL
+    int currentIndex = 0;
+    final imageUrls = mediaList
+        .where((m) => _isImage(m))
+        .map((m) => "http://192.168.10.3/public_html/FlutterGrad/$m")
+        .toList();
+    final fileUrls = mediaList
+        .where((m) => !_isImage(m))
+        .map((m) => "http://192.168.10.3/public_html/FlutterGrad/$m")
+        .toList();
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.15),
+            spreadRadius: 3,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(creatorID, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
-                Icon(postType == 'private' ? Icons.lock : Icons.public, color: Colors.green),
+                const CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.green,
+                  child: Icon(Icons.person, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    creatorID,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
+               // Icon(postType == 'private' ? Icons.lock : Icons.public, color: Colors.green),
               ],
             ),
-            const SizedBox(height: 4),
-            Text("Title: $title", style: const TextStyle(fontSize: 20)),
-            const SizedBox(height: 4),
-            Text(content, style: TextStyle(color: Colors.black, fontSize: 30)),
-
-            // Add image if mediaUrl is not empty
-            if (mediaUrl.isNotEmpty)
-              FutureBuilder<Size>(
-                future: _getImageSize(fullMediaUrl),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Shimmer.fromColors(
-                      baseColor: Colors.grey[300]!,
-                      highlightColor: Colors.grey[100]!,
-                      child: Container(
-                        height: 120, // Reduced height for the image
-                        width: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    );
-                  } else if (snapshot.hasData) {
-                    final aspectRatio = snapshot.data!.width / snapshot.data!.height;
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: AspectRatio(
-                        aspectRatio: aspectRatio,
-                        child: Image.network(
-                          fullMediaUrl, // Use the full URL path
-                          fit: BoxFit.cover, // Use cover to make the image fill the container
-                          height: 120, // Set a fixed height for the image
-                          width: 120, // Ensure the image takes up the full width
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Shimmer.fromColors(
-                              baseColor: Colors.grey[300]!,
-                              highlightColor: Colors.grey[100]!,
-                              child: Container(
-                                height: 120, // Reduced height
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              content,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            if (imageUrls.isNotEmpty)
+              StatefulBuilder(
+                builder: (context, setState) {
+                  return Column(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 4 / 3,
+                        child: PageView.builder(
+                          itemCount: imageUrls.length,
+                          onPageChanged: (index) {
+                            setState(() {
+                              currentIndex = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                imageUrls[index],
+                                fit: BoxFit.contain,
                                 width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Shimmer.fromColors(
+                                    baseColor: Colors.grey[300]!,
+                                    highlightColor: Colors.grey[100]!,
+                                    child: Container(
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const SizedBox();
+                                },
                               ),
                             );
                           },
-                          errorBuilder: (context, error, stackTrace) {
-                            return const SizedBox(); // or show a fallback image/icon
-                          },
                         ),
                       ),
-                    );
-                  } else {
-                    return const SizedBox(); // fallback if error
-                  }
+                      if (imageUrls.length > 1)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              imageUrls.length,
+                              (index) => Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: currentIndex == index ? Colors.green : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
                 },
               ),
-
-            const SizedBox(height: 10),
+            if (fileUrls.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: fileUrls.map((url) {
+                    final filename = url.split('/').last;
+                    return ListTile(
+                      leading: Icon(Icons.attach_file, color: Colors.green),
+                      title: Text(filename, style: TextStyle(fontSize: 14)),
+                      trailing: Icon(Icons.download, color: Colors.green),
+                      onTap: () async {
+                        await _downloadAndOpenFile(context, url, filename);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [

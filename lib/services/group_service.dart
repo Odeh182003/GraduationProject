@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class GroupService {
   static final String _baseUrl = kIsWeb
       ? "http://localhost/public_html/FlutterGrad/create_group.php"
-      : "http://192.168.10.5/public_html/FlutterGrad/create_group.php";
+      : "http://192.168.10.3/public_html/FlutterGrad/create_group.php";
 
   static Future<List<Map<String, dynamic>>> getChatGroups(String universityID) async {
     final prefs = await SharedPreferences.getInstance();
@@ -29,7 +29,7 @@ class GroupService {
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
+        final result = await _parseJson(response.body);
 
         if (result["success"] == true && result["groups"] is List) {
           final Set<String> uniqueGroupIDs = {};
@@ -57,7 +57,13 @@ class GroupService {
 
     return [];
   }
+static Future<Map<String, dynamic>> _parseJson(String responseBody) async {
+  return await compute(_decodeJsonMap, responseBody);
+}
 
+static Map<String, dynamic> _decodeJsonMap(String responseBody) {
+  return jsonDecode(responseBody) as Map<String, dynamic>;
+}
  static Future<Map<String, dynamic>> createGroups(String universityID, String role) async {
   Uri url;
   if (role == "academic") {
@@ -113,5 +119,6 @@ class GroupService {
     "message": "Something went wrong while creating groups.",
   };
 }
+
 
 }

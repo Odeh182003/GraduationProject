@@ -14,17 +14,27 @@ class EventFormScreen extends StatefulWidget {
 }
 
 class _EventFormScreenState extends State<EventFormScreen> {
- // final TextEditingController nameController = TextEditingController();
-  final TextEditingController universityIdController = TextEditingController();
   final TextEditingController eventTitleController = TextEditingController();
   final TextEditingController eventContentController = TextEditingController();
   DateTime? selectedDate;
-  String selectedParticipationType = 'Organizer'; // Default value
+
+  String? universityId; // Store loaded university ID
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUniversityId();
+  }
+
+  Future<void> _loadUniversityId() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      universityId = prefs.getString("universityID");
+    });
+  }
 
   @override
   void dispose() {
-   // nameController.dispose();
-    universityIdController.dispose();
     eventTitleController.dispose();
     eventContentController.dispose();
     super.dispose();
@@ -47,21 +57,19 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   // Function to submit the form to the PHP server
   void _submitForm() async {
-    //String name = nameController.text.trim();
-    String universityId = universityIdController.text.trim();
     String eventTitle = eventTitleController.text.trim();
     String eventContent = eventContentController.text.trim();
     String date = selectedDate != null
         ? DateFormat('yyyy-MM-dd').format(selectedDate!)
         : "";
-      //  print("Name: $name");
-  print("University ID: $universityId");
-  print("Event Title: $eventTitle");
-  print("Event Content: $eventContent");
-  print("Date: $date");
-  print("Participation Type: $selectedParticipationType");
 
-    if (universityId.isEmpty || eventTitle.isEmpty || eventContent.isEmpty || date.isEmpty) {
+    // Use loaded universityId
+    print("University ID: $universityId");
+    print("Event Title: $eventTitle");
+    print("Event Content: $eventContent");
+    print("Date: $date");
+
+    if (eventTitle.isEmpty || eventContent.isEmpty || date.isEmpty) {
       _showErrorDialog("Please fill in all required fields.");
       return;
     }
@@ -70,14 +78,15 @@ class _EventFormScreenState extends State<EventFormScreen> {
     Map<String, dynamic> data = {
       'activityName': eventTitle,
       'activityHostID': universityId,
-      'activityDate': date,
-      'participationType': selectedParticipationType,
+      'activityDate': DateFormat('yyyy-MM-dd').format(DateTime.now()), // Store current date as activityDate
+      'expiryDate': date, // Store selected date as expiryDate
       'CONTENT': eventContent,
+      'status': 'Pendding',
     };
 
     try {
       var response = await http.post(
-        Uri.parse('http://192.168.10.5/public_html/FlutterGrad/officials_new_event.php'), 
+        Uri.parse('http://192.168.10.3/public_html/FlutterGrad/officials_new_event.php'), 
         headers: {'Content-Type': 'application/json'},
         body: json.encode(data),
       );
@@ -192,7 +201,6 @@ class _EventFormScreenState extends State<EventFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildTextField("Event Title *", eventTitleController, "Enter event title"),
-            _buildTextField("University ID *", universityIdController, "Enter Host university ID"),
             _buildTextField("Event Content *", eventContentController, "Enter event content", maxLines: 4),
 
             const SizedBox(height: 10),
@@ -210,24 +218,6 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: const Text("Pick Date"),
                 ),
               ],
-            ),
-            const SizedBox(height: 20),
-
-            const Text("Participation Type"),
-            DropdownButton<String>(
-              value: selectedParticipationType,
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedParticipationType = newValue!;
-                });
-              },
-              items: <String>['Organizer', 'Participate']
-                  .map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
             ),
             const SizedBox(height: 20),
 

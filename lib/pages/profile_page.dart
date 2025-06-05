@@ -17,6 +17,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  bool _obscurePassword = true;
   Map<String, dynamic>? userData;
   Map<String, dynamic>? StudentClubData;
   bool isLoading = true;
@@ -51,7 +52,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> getUserData() async {
     if (userID == null) return;
 
-    final url = Uri.parse("http://192.168.10.5/public_html/FlutterGrad/getInformation.php?universityID=$userID");
+    final url = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getInformation.php?universityID=$userID");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -112,7 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse("http://192.168.10.5/public_html/FlutterGrad/updateUserInformation.php"),
+      Uri.parse("http://192.168.10.3/public_html/FlutterGrad/updateUserInformation.php"),
     );
 
     request.fields['universityID'] = userID!;
@@ -150,7 +151,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String fixImageUrl(String imageUrl) {
     String baseUrl = kIsWeb
         ? "http://localhost/public_html/FlutterGrad/"
-        : "http://192.168.10.5/public_html/FlutterGrad/";
+        : "http://192.168.10.3/public_html/FlutterGrad/";
 
     if (!imageUrl.startsWith("http")) {
       return "$baseUrl${imageUrl.replaceAll("\\", "/")}";
@@ -172,25 +173,25 @@ Widget build(BuildContext context) {
 
   return Scaffold(
     backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-  backgroundColor: Colors.white,
-  foregroundColor: Colors.green,
-  elevation: 1,
-  title: Row(
-    children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
+    appBar: AppBar(
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.green,
+      elevation: 1,
+      title: Row(
+        children: [
+          Image.asset(
+            'assets/logo.png',
+            height: 40, // Adjust height as needed
+          ),
+          const SizedBox(width: 8), // Space between image and text
+          const Text(
+            "Profile Page",
+            style: TextStyle(
+              color: Colors.green, // Ensure text color matches your theme
+            ),
+          ),
+        ],
       ),
-      const SizedBox(width: 8), // Space between image and text
-      const Text(
-        "Profile Page",
-        style: TextStyle(
-          color: Colors.green, // Ensure text color matches your theme
-        ),
-      ),
-    ],
-  ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -228,7 +229,28 @@ Widget build(BuildContext context) {
                           child: const Text("Choose Image"),
                         ),
                       TextField(controller: usernameController, decoration: const InputDecoration(labelText: "Username")),
-                      TextField(controller: passwordController,obscureText: true, decoration: const InputDecoration(labelText: "password")),
+                   StatefulBuilder(
+          builder: (context, setState) {
+            return TextField(
+              controller: passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: "Password",
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+
                       //TextField(controller: roleController, decoration: const InputDecoration(labelText: "Role ID")),
                       TextField(controller: genderController, decoration: const InputDecoration(labelText: "Gender")),
                       TextField(controller: dobController, decoration: const InputDecoration(labelText: "Date of Birth")),
@@ -276,10 +298,10 @@ Widget studentSection() {
 Widget academicSection() {
   return Column(
     children: [
-      TextField(
+     /* TextField(
         decoration: const InputDecoration(labelText: "Academic Name"),
         controller: TextEditingController(text: userData?["academicName"] ?? ""),
-      ),
+      ),*/
       TextField(
         decoration: const InputDecoration(labelText: "Email"),
         controller: TextEditingController(text: userData?["EMAIL"] ?? ""),

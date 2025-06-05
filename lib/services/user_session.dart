@@ -15,7 +15,7 @@ class UserHelper {
       if(kIsWeb){
       url = Uri.parse("http://localhost/public_html/FlutterGrad/getInformation.php?universityID=$universityID");
     } else {
-      url = Uri.parse("http://192.168.10.5/public_html/FlutterGrad/getInformation.php?universityID=$universityID");
+      url = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getInformation.php?universityID=$universityID");
     }
       final response = await http.get(Uri.parse(
         

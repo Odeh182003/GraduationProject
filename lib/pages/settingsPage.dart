@@ -1,3 +1,7 @@
+import 'dart:convert';
+//import 'package:crypto/crypto.dart';
+//import 'package:bzu_leads/services/noti_service.dart';
+import 'package:http/http.dart' as http;
 import 'package:bzu_leads/components/my_button.dart';
 import 'package:bzu_leads/pages/profile_page.dart';
 import 'package:bzu_leads/themes/theme_provider.dart';
@@ -8,6 +12,108 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class settingsPage extends StatelessWidget {
   const settingsPage({super.key});
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final oldPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Change Password"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: oldPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Old Password"),
+              ),
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "New Password"),
+              ),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Confirm New Password"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final oldPass = oldPasswordController.text.trim();
+                final newPass = newPasswordController.text.trim();
+                final confirmPass = confirmPasswordController.text.trim();
+
+                if (newPass.isEmpty || oldPass.isEmpty || confirmPass.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("All fields are required.")),
+                  );
+                  return;
+                }
+                if (newPass != confirmPass) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Passwords do not match.")),
+                  );
+                  return;
+                }
+
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                String? universityID = prefs.getString("universityID");
+                if (universityID == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("User not found.")),
+                  );
+                  return;
+                }
+
+                final response = await changePasswordRequest(
+                  universityID,
+                  oldPass, // send plain old password, not hashed
+                  newPass, // send plain new password, not hashed
+                );
+
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(response)),
+                );
+              },
+              child: const Text("Change"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static Future<String> changePasswordRequest(
+      String universityID, String oldPassword, String newPassword) async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://192.168.10.3/public_html/FlutterGrad/changePass.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'universityID': universityID,
+          'oldPassword': oldPassword,
+          'newPassword': newPassword,
+        }),
+      );
+      final data = jsonDecode(response.body);
+      return data['message'] ?? (data['success'] == true ? "Password updated successfully" : "Failed to update password");
+    } catch (e) {
+      return "Error: $e";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +161,32 @@ class settingsPage extends StatelessWidget {
                 ],
               ),
             ),
-
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(25),
+              padding: const EdgeInsets.all(26),
+             /* child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Notifications"),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final notiService = NotiService();
+                      await notiService.initNotification(); // Ensure initialization
+                      await notiService.showNotification(
+                        0,
+                        "Test Notification",
+                        "This is a test notification from BZU Leads",
+                      );
+                    },
+                    child: const Text("Show Notification"),
+                  ),
+                ],
+              ),*/
+            ),
             // Edit Profile and Change Password
             ListView(
               shrinkWrap: true,
@@ -104,7 +235,7 @@ class settingsPage extends StatelessWidget {
                     ),
                     child: InkWell(
                       onTap: () {
-                        // TODO: Add change password logic here
+                        _showChangePasswordDialog(context);
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

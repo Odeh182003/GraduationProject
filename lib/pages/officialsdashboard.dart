@@ -9,9 +9,11 @@ import 'package:bzu_leads/pages/chatting_page.dart';
 import 'package:bzu_leads/pages/createCostumeGroup.dart';
 import 'package:bzu_leads/pages/createEventOfficials.dart';
 import 'package:bzu_leads/pages/PostFormScreen.dart';
+import 'package:bzu_leads/pages/participators.dart';
 import 'package:bzu_leads/pages/postsDetails.dart';
 import 'package:bzu_leads/pages/private_posts.dart';
 import 'package:bzu_leads/pages/profile_page.dart';
+import 'package:bzu_leads/pages/registration.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:bzu_leads/services/group_service.dart';
 import 'package:bzu_leads/services/post_service.dart';
@@ -35,21 +37,14 @@ int _selectedIndex = 0;
 
 
   List<dynamic> posts = [];
-  bool _isDarkMode = false;
-
-  /*final List<Widget> _pages = [
-    const Academicdashboard(),
-    const ChattingGroupPage(),
-    const ProfilePage(),
-  ];*/
+  //bool _isDarkMode = false;
 
  @override
 void initState() {
   super.initState();
-  loadTheme();
+  //loadTheme();
   fetchPosts();
   _initializePreferences().then((_) {
-    // Optional: ensure initial group list
     _fetchChatGroups();
     _loadUserRole();
   });
@@ -66,16 +61,15 @@ Future<void> _initializePreferences() async {
   prefs = await SharedPreferences.getInstance();
   _currentUserID = prefs?.getString("universityID");
 
-  // Decode the roles as a list
   final rolesJson = prefs?.getString("role");
   if (rolesJson != null) {
     List<dynamic> decodedRoles = [];
     try {
       decodedRoles = rolesJson.contains('[')
           ? List<String>.from(jsonDecode(rolesJson))
-          : [rolesJson]; // handle string fallback
+          : [rolesJson];
     } catch (_) {
-      decodedRoles = [rolesJson]; // Fallback to single string role
+      decodedRoles = [rolesJson];
     }
 
     setState(() {
@@ -105,12 +99,12 @@ Future<void> _initializePreferences() async {
 }
 
 
-  void loadTheme() async {
+  /*void loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isDarkMode = prefs.getBool('darkMode') ?? false;
     });
-  }
+  }*/
 
   Future<void> fetchPosts() async {
   try {
@@ -119,7 +113,6 @@ Future<void> _initializePreferences() async {
       posts = data;
     });
   } catch (e) {
-    // Optional: show error snackbar or message
     print("Error fetching posts: $e");
   }
 }
@@ -130,16 +123,16 @@ Future<void> _onSideNavSelected(int index) async {
   }
 }
 
-void _onBottomNavSelected(int index) {
+/*void _onBottomNavSelected(int index) {
   final isWideScreen = MediaQuery.of(context).size.width >= 900;
 
   switch (index) {
     case 0:
-      setState(() => _selectedIndex = 0); // Dashboard
+      setState(() => _selectedIndex = 0);
       break;
     case 1:
       if (isWideScreen) {
-        setState(() => _selectedIndex = 1); // Chatting group inline
+        setState(() => _selectedIndex = 1);
       } else {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const ChattingGroupPage()));
       }
@@ -149,7 +142,7 @@ void _onBottomNavSelected(int index) {
       break;
   }
 }
-
+*/
   Widget _buildShimmerCard() {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 12),
@@ -168,7 +161,7 @@ void _onBottomNavSelected(int index) {
       ),
     );
   }
-Future<Size> _getImageSize(String imageUrl) async {
+/*Future<Size> _getImageSize(String imageUrl) async {
   final Completer<Size> completer = Completer();
   final Image image = Image.network(imageUrl);
 
@@ -178,26 +171,29 @@ Future<Size> _getImageSize(String imageUrl) async {
       final size = Size(myImage.width.toDouble(), myImage.height.toDouble());
       completer.complete(size);
     }, onError: (error, stackTrace) {
-      completer.complete(const Size(16, 9)); // Fallback aspect ratio
+      completer.complete(const Size(16, 9));
     }),
   );
 
   return completer.future;
-}
+}*/
 
   Widget _buildPostCard(dynamic post) {
+    // Handle media as a List (from postsphotos)
+    final List<dynamic> mediaList = post['media'] is List ? post['media'] : [];
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.15),
-            spreadRadius: 3,
-            blurRadius: 12,
+            spreadRadius: 2,
+            blurRadius: 8,
             offset: const Offset(0, 4),
           )
         ],
@@ -208,14 +204,16 @@ Future<Size> _getImageSize(String imageUrl) async {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),//, postType: 'public',
+              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),
             ),
           );
         },
-child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header Row with Avatar and user info
               Row(
                 children: [
                   const CircleAvatar(
@@ -225,9 +223,23 @@ child: SingleChildScrollView(
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      post['username'],
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post['username'],
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "(${post['universityID']})",
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                   Text(
@@ -237,6 +249,13 @@ child: SingleChildScrollView(
                 ],
               ),
               const SizedBox(height: 12),
+              // Divider to separate header and content
+              Container(
+                height: 1,
+                color: Colors.grey[300],
+              ),
+              const SizedBox(height: 12),
+              // Post title and content
               Text(
                 post['posttitle'],
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
@@ -244,75 +263,96 @@ child: SingleChildScrollView(
               const SizedBox(height: 8),
               Text(
                 post['CONTENT'],
+                style: const TextStyle(fontSize: 15, height: 1.4),
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, height: 1.4),
               ),
               const SizedBox(height: 12),
-              if (post['media'] != null && post['media'].isNotEmpty)
-  FutureBuilder<Size>(
-    future: _getImageSize("http://192.168.10.5/public_html/FlutterGrad/${post['media']}"),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return Shimmer.fromColors(
-          baseColor: Colors.grey[300]!,
-          highlightColor: Colors.grey[100]!,
-          child: Container(
-            height: 180,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      } else if (snapshot.hasData) {
-        final aspectRatio = snapshot.data!.width / snapshot.data!.height;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AspectRatio(
-            aspectRatio: aspectRatio,
-            child: Image.network(
-  "http://192.168.10.5/public_html/FlutterGrad/${post['media']}",
-  fit: BoxFit.contain,
-  loadingBuilder: (context, child, loadingProgress) {
-    if (loadingProgress == null) return child;
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: Container(
-        height: 180,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  },
-  errorBuilder: (context, error, stackTrace) {
-    return const SizedBox(); // or show a fallback image/icon
-  },
-),
-
-          ),
-        );
-      } else {
-        return const SizedBox(); // fallback if error
-      }
-    },
-  ),
-
+              // --- Media section for images and files ---
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: mediaList.isNotEmpty
+                      ? _buildMediaCarousel(mediaList)
+                      : Container(
+                          height: 250,
+                          color: Colors.grey[300],
+                          child: Center(
+                            child: Icon(Icons.image, size: 100, color: Colors.grey[600]),
+                          ),
+                        ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildMediaCarousel(List<dynamic> mediaList) {
+    // Show all media as images in a sweep (PageView) as before
+    int currentIndex = 0;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Column(
+          children: [
+            SizedBox(
+              height: 250,
+              child: PageView.builder(
+                itemCount: mediaList.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    currentIndex = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final imgUrl = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      imgUrl,
+                      fit: BoxFit.contain,
+                      height: 250,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[300],
+                        height: 250,
+                        child: Icon(Icons.broken_image, size: 100, color: Colors.grey[600]),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (mediaList.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    mediaList.length,
+                    (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: currentIndex == index ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
 List<Future<void> Function()> get _navigationActions {
   return [
     () async {
-      // Dashboard (skip since it's inline)
+      // Dashboard (no navigation needed as it's inline)
     },
     () async {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
@@ -320,9 +360,10 @@ List<Future<void> Function()> get _navigationActions {
     () async {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivatePosts()));
     },
-    () async {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => OfficialNotification()));
-    },
+    if (!_isUniversityAdmin) // Show only for officials
+      () async {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => OfficialNotification()));
+      },
     () async {
       Navigator.push(context, MaterialPageRoute(builder: (_) => PostFormScreen()));
     },
@@ -332,9 +373,16 @@ List<Future<void> Function()> get _navigationActions {
     () async {
       Navigator.push(context, MaterialPageRoute(builder: (_) => Editactivity(userID: _currentUserID!)));
     },
-    if (_isUniversityAdmin)
+    () async {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Participators(userID: _currentUserID!)));
+    },
+    if (_isUniversityAdmin) // Show only for university administrators
       () async {
         Navigator.push(context, MaterialPageRoute(builder: (_) => StatisticsPage()));
+      },
+    if (_isUniversityAdmin) // Show only for university administrators
+      () async {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrationPage()));
       },
     () async {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -342,11 +390,10 @@ List<Future<void> Function()> get _navigationActions {
       final defaultRole = prefs.getString("defaultRole");
 
       final Map<String, int> roleMap = {
-       "official": 1,
-       "academic": 2,
-      "universityAdministrator": 3,
-};
-
+        "official": 1,
+        "academic": 2,
+        "universityAdministrator": 3,
+      };
 
       final roleID = roleMap[defaultRole];
       final userID = int.tryParse(universityID ?? '');
@@ -357,7 +404,8 @@ List<Future<void> Function()> get _navigationActions {
           MaterialPageRoute(
             builder: (_) => CreateCustomGroupScreen(
               createdByUserID: userID,
-              roleID: roleID,
+              roleID: roleID
+              //userFaculty: prefs.getString("facultyName") ?? "",
             ),
           ),
         );
@@ -369,8 +417,13 @@ List<Future<void> Function()> get _navigationActions {
     () async {
       Navigator.push(context, MaterialPageRoute(builder: (_) => settingsPage()));
     },
+     if (_isUniversityAdmin) // Show only for university administrators
+      () async {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrationPage()));
+      },
   ];
 }
+
 List<NavigationRailDestination> get _navigationDestinations {
   return [
     const NavigationRailDestination(
@@ -385,10 +438,11 @@ List<NavigationRailDestination> get _navigationDestinations {
       icon: Icon(Icons.privacy_tip_outlined),
       label: Text("Private Posts"),
     ),
-    const NavigationRailDestination(
-      icon: Icon(Icons.chat_outlined),
-      label: Text("Notifications"),
-    ),
+    if (!_isUniversityAdmin) // Show only for officials
+      const NavigationRailDestination(
+        icon: Icon(Icons.chat_outlined),
+        label: Text("Notifications"),
+      ),
     const NavigationRailDestination(
       icon: Icon(Icons.post_add),
       label: Text("Create new Posts"),
@@ -401,10 +455,19 @@ List<NavigationRailDestination> get _navigationDestinations {
       icon: Icon(Icons.edit_note),
       label: Text("Edit Events"),
     ),
-    if (_isUniversityAdmin)
+    const NavigationRailDestination(
+      icon: Icon(Icons.list),
+      label: Text("View participators"),
+    ),
+    if (_isUniversityAdmin) // Show only for university administrators
       const NavigationRailDestination(
         icon: Icon(Icons.rate_review),
         label: Text("Statistics"),
+      ),
+    if (_isUniversityAdmin) // Show only for university administrators
+      const NavigationRailDestination(
+        icon: Icon(Icons.person_add),
+        label: Text("Registration"),
       ),
     const NavigationRailDestination(
       icon: Icon(Icons.group_add),
@@ -441,6 +504,166 @@ List<NavigationRailDestination> get _navigationDestinations {
   );
 }
 
+  // Add this method for Drawer navigation
+  Widget _buildDrawerNavigation() {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        DrawerHeader(
+          decoration: const BoxDecoration(
+            color: Colors.green,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                radius: 28,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, size: 36, color: Colors.green),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                prefs?.getString("username") ?? "Official",
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                _currentUserID ?? "",
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.dashboard_outlined),
+          title: const Text('Dashboard'),
+          onTap: () {
+            Navigator.pop(context);
+            setState(() => _selectedIndex = 0);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.person_2_outlined),
+          title: const Text('Profile'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: const Text('Private Posts'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const PrivatePosts()));
+          },
+        ),
+        if (!_isUniversityAdmin)
+          ListTile(
+            leading: const Icon(Icons.chat_outlined),
+            title: const Text('Notifications'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => OfficialNotification()));
+            },
+          ),
+        ListTile(
+          leading: const Icon(Icons.post_add),
+          title: const Text('Create new Posts'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => PostFormScreen()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.create_outlined),
+          title: const Text('Create new Events'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EventFormScreen()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.edit_note),
+          title: const Text('Edit Events'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Editactivity(userID: _currentUserID!)));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.list),
+          title: const Text('View participators'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Participators(userID: _currentUserID!)));
+          },
+        ),
+        if (_isUniversityAdmin)
+          ListTile(
+            leading: const Icon(Icons.rate_review),
+            title: const Text('Statistics'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => StatisticsPage()));
+            },
+          ),
+        if (_isUniversityAdmin)
+          ListTile(
+            leading: const Icon(Icons.person_add),
+            title: const Text('Registration'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => RegistrationPage()));
+            },
+          ),
+        ListTile(
+          leading: const Icon(Icons.group_add),
+          title: const Text('Costume Groups'),
+          onTap: () async {
+            Navigator.pop(context);
+            SharedPreferences prefs = await SharedPreferences.getInstance();
+            final universityID = prefs.getString("universityID");
+            final defaultRole = prefs.getString("defaultRole");
+            final Map<String, int> roleMap = {
+              "official": 1,
+              "academic": 2,
+              "universityAdministrator": 3,
+            };
+            final roleID = roleMap[defaultRole];
+            final userID = int.tryParse(universityID ?? '');
+            if (roleID != null && userID != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CreateCustomGroupScreen(
+                    createdByUserID: userID,
+                    roleID: roleID,
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.calendar_month_rounded),
+          title: const Text('Calender'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Calender()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.settings),
+          title: const Text('Settings'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => settingsPage()));
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isWideScreen = MediaQuery.of(context).size.width > 900;
@@ -454,36 +677,25 @@ List<NavigationRailDestination> get _navigationDestinations {
     children: [
       Image.asset(
         'assets/logo.png',
-        height: 40, // Adjust height as needed
+        height: 40,
       ),
-      const SizedBox(width: 8), // Space between image and text
+      const SizedBox(width: 8),
       const Text(
         "Officials' Dashboard",
         style: TextStyle(
-          color: Colors.green, // Ensure text color matches your theme
+          color: Colors.green,
         ),
       ),
     ],
   ),
-        actions: isWideScreen
-            ? null
-            : [
-                PopupMenuButton<int>(
-                  icon: const Icon(Icons.menu),
-                  onSelected: _onBottomNavSelected,
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 0, child: Text("Dashboard")),
-                    const PopupMenuItem(value: 1, child: Text("Chat")),
-                    const PopupMenuItem(value: 2, child: Text("Settings")),
-                  ],
-                )
-              ],
+        
       ),
+      // Drawer for small screens, as in academic/student dashboards
+      drawer: !isWideScreen ? Drawer(child: _buildDrawerNavigation()) : null,
       body: Row(
         children: [
           if (isWideScreen) _buildSideNav(),
 
-          // Center content
           Expanded(
             flex: 3,
             child: Center(
@@ -507,7 +719,6 @@ List<NavigationRailDestination> get _navigationDestinations {
             ),
           ),
 
-          // Right side - for web/tablets
           if (isWideScreen)
             Expanded(
               flex: 1,
@@ -579,34 +790,31 @@ Expanded(
             ),
         ],
       ),
-      bottomNavigationBar: isWideScreen
-    ? null
-    : BottomNavigationBar(
-        onTap: _onBottomNavSelected,
-        currentIndex: 0, // Always show Dashboard as selected
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
-      ),
-      
+      // Remove bottomNavigationBar for small screens
+      // bottomNavigationBar: isWideScreen
+      //   ? null
+      //   : BottomNavigationBar(
+      //       onTap: _onBottomNavSelected,
+      //       currentIndex: 0,
+      //       items: const [
+      //         BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+      //         BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
+      //         BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+      //       ],
+      //     ),
       floatingActionButton: (_roleList.contains("academic") || _roleList.contains("official")) && MediaQuery.of(context).size.width > 900
-    ? FloatingActionButton(
-        onPressed: _createGroups,
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.group_add),
-        
-      )
-    : null,
-    
+          ? FloatingActionButton(
+              onPressed: _createGroups,
+              backgroundColor: Colors.green,
+              child: const Icon(Icons.group_add),
+            )
+          : null,
     );
-    
   }
    
 bool _isCreating = false;
   Future<void> _createGroups() async {
-  if (_isCreating) return; // Prevent double-tap
+  if (_isCreating) return;
 
   setState(() {
     _isCreating = true;

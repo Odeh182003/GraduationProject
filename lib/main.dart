@@ -12,6 +12,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+ // NotiService().initNotification(); // Initialize notifications
   try {
     if (kIsWeb) {
       await Firebase.initializeApp(

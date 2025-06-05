@@ -30,7 +30,7 @@ class _RejectedPostsPageState extends State<RejectedPostsPage> {
       }
 
       final response = await http.post(
-        Uri.parse('http://192.168.10.5/public_html/FlutterGrad/get_rejected_posts.php'),
+        Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_rejected_posts.php'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'universityID': universityID}),
       );
@@ -82,7 +82,7 @@ class _RejectedPostsPageState extends State<RejectedPostsPage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  "http://192.168.10.5/public_html/FlutterGrad/${post['media']}",
+                  "http://192.168.10.3/public_html/FlutterGrad/${post['media']}",
                   height: 200,
                   width: double.infinity,
                   fit: BoxFit.cover,

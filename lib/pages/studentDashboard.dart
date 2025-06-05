@@ -1,9 +1,13 @@
 //import 'package:bzu_leads/components/my_drawer.dart';
 import 'dart:async';
-
-//import 'package:bzu_leads/components/officialBottomNavigator.dart';
-//import 'package:bzu_leads/pages/chattingGroup_page.dart';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:bzu_leads/pages/RejectedPostsPage.dart';
+import 'package:bzu_leads/pages/academicRoom.dart';
+import 'package:bzu_leads/pages/chattingGroup_page.dart';
 import 'package:bzu_leads/pages/chatting_page.dart';
 import 'package:bzu_leads/pages/participate.dart';
 //import 'package:bzu_leads/pages/createPostsStudents.dart';
@@ -14,7 +18,7 @@ import 'package:bzu_leads/pages/studentCreatePosts.dart';
 import 'package:bzu_leads/services/group_service.dart';
 import 'package:bzu_leads/services/post_service.dart';
 //import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+//import 'package:flutter/material.dart';
 //import 'dart:convert';
 //import 'package:http/http.dart' as http;
 import 'package:bzu_leads/pages/postsDetails.dart';
@@ -107,8 +111,13 @@ Future<void> _initializePreferences() async {
         MaterialPageRoute(builder: (context) => Participate(userID: _currentUserID!)),
       );
     } 
+  }else if (index == 5) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) =>  AcademicRoomPage()),
+    );
   }
-  else if (index == 5) {
+  else if (index == 6) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) =>  RejectedPostsPage()),
@@ -142,7 +151,7 @@ Future<void> _initializePreferences() async {
       ),
     );
   }
-Future<Size> _getImageSize(String imageUrl) async {
+/*Future<Size> _getImageSize(String imageUrl) async {
   final Completer<Size> completer = Completer();
   final Image image = Image.network(imageUrl);
 
@@ -157,21 +166,76 @@ Future<Size> _getImageSize(String imageUrl) async {
   );
 
   return completer.future;
-}
+}*/
 
   Widget _buildPostCard(dynamic post) {
+    final List<dynamic> mediaList = post['media'] is List ? post['media'] : [];
+
+    // Separate images and files by extension
+    final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    final List<String> images = [];
+    final List<String> files = [];
+
+    for (var item in mediaList) {
+      if (item is String) {
+        final ext = item.split('.').last.toLowerCase();
+        if (imageExtensions.contains(ext)) {
+          images.add(item);
+        } else {
+          files.add(item);
+        }
+      }
+    }
+
+    Future<void> _downloadFile(String url, String fileName) async {
+      try {
+        Directory? downloadsDir;
+        try {
+          downloadsDir = await getDownloadsDirectory();
+        } catch (e) {
+          downloadsDir = await getApplicationDocumentsDirectory();
+        }
+        if (downloadsDir == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Cannot access downloads directory.")),
+          );
+          return;
+        }
+        final savePath = "${downloadsDir.path}/$fileName";
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200) {
+          final file = File(savePath);
+          await file.writeAsBytes(response.bodyBytes);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Downloaded to $savePath")),
+          );
+          try {
+            await OpenFile.open(savePath);
+          } catch (_) {}
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to download file (status ${response.statusCode}).")),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error downloading file: $e")),
+        );
+      }
+    }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.15),
-            spreadRadius: 3,
-            blurRadius: 12,
+            spreadRadius: 2,
+            blurRadius: 8,
             offset: const Offset(0, 4),
           )
         ],
@@ -182,7 +246,7 @@ Future<Size> _getImageSize(String imageUrl) async {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),//, postType: 'public',
+              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),
             ),
           );
         },
@@ -191,6 +255,7 @@ Future<Size> _getImageSize(String imageUrl) async {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header Row with Avatar and user info
               Row(
                 children: [
                   const CircleAvatar(
@@ -200,9 +265,23 @@ Future<Size> _getImageSize(String imageUrl) async {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      post['username'],
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post['username'],
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "(${post['universityID']})",
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                   Text(
@@ -212,6 +291,13 @@ Future<Size> _getImageSize(String imageUrl) async {
                 ],
               ),
               const SizedBox(height: 12),
+              // Divider to separate header and content
+              Container(
+                height: 1,
+                color: Colors.grey[300],
+              ),
+              const SizedBox(height: 12),
+              // Post title and content
               Text(
                 post['posttitle'],
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
@@ -219,69 +305,113 @@ Future<Size> _getImageSize(String imageUrl) async {
               const SizedBox(height: 8),
               Text(
                 post['CONTENT'],
+                style: const TextStyle(fontSize: 15, height: 1.4),
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, height: 1.4),
               ),
               const SizedBox(height: 12),
-              if (post['media'] != null && post['media'].isNotEmpty)
-  FutureBuilder<Size>(
-    future: _getImageSize("http://192.168.10.5/public_html/FlutterGrad/${post['media']}"),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return Shimmer.fromColors(
-          baseColor: Colors.grey[300]!,
-          highlightColor: Colors.grey[100]!,
-          child: Container(
-            height: 180,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      } else if (snapshot.hasData) {
-        final aspectRatio = snapshot.data!.width / snapshot.data!.height;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AspectRatio(
-            aspectRatio: aspectRatio,
-            child: Image.network(
-  "http://192.168.10.5/public_html/FlutterGrad/${post['media']}",
-  fit: BoxFit.contain,
-  loadingBuilder: (context, child, loadingProgress) {
-    if (loadingProgress == null) return child;
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: Container(
-        height: 180,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  },
-  errorBuilder: (context, error, stackTrace) {
-    return const SizedBox(); // or show a fallback image/icon
-  },
-),
-
-          ),
-        );
-      } else {
-        return const SizedBox(); // fallback if error
-      }
-    },
-  ),
-
+              // --- Media section for images and files ---
+              if (images.isNotEmpty)
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: _buildMediaCarousel(images),
+                  ),
+                )
+              else
+                Center(
+                  child: Container(
+                    height: 250,
+                    color: Colors.grey[300],
+                    child: Center(
+                      child: Icon(Icons.image, size: 100, color: Colors.grey[600]),
+                    ),
+                  ),
+                ),
+              if (files.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Attachments:", style: TextStyle(fontWeight: FontWeight.w600)),
+                      ...files.map((file) {
+                        final fileName = file.split('/').last;
+                        final fileUrl = "http://192.168.10.3/public_html/FlutterGrad/$file";
+                        return ListTile(
+                          leading: Icon(Icons.attach_file, color: Colors.green),
+                          title: Text(fileName, overflow: TextOverflow.ellipsis),
+                          onTap: () async {
+                            await _downloadFile(fileUrl, fileName);
+                          },
+                          trailing: Icon(Icons.download, color: Colors.green),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMediaCarousel(List<String> mediaList) {
+    int currentIndex = 0;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Column(
+          children: [
+            SizedBox(
+              height: 250,
+              child: PageView.builder(
+                itemCount: mediaList.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    currentIndex = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final url = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      height: 250,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[300],
+                        height: 250,
+                        child: Icon(Icons.broken_image, size: 100, color: Colors.grey[600]),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (mediaList.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    mediaList.length,
+                    (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: currentIndex == index ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -323,13 +453,17 @@ Future<Size> _getImageSize(String imageUrl) async {
                 label: Text("Participate in Events"),
               ),
               NavigationRailDestination(
+                icon: Icon(Icons.info_sharp),
+                label: Text("Academics' Rooms"),
+              ),
+              NavigationRailDestination(
                 icon: Icon(Icons.recycling),
                 label: Text("Rejected Posts"),
               ),
-              NavigationRailDestination(
+              /*NavigationRailDestination(
                 icon: Icon(Icons.calendar_month_rounded),
                 label: Text("Calender"),
-              ),
+              ),*/
               NavigationRailDestination(
                 icon: Icon(Icons.settings),
                 label: Text("Settings"),
@@ -342,46 +476,139 @@ Future<Size> _getImageSize(String imageUrl) async {
   );
 }
 
+  Widget _buildDrawerNavigation() {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        DrawerHeader(
+          decoration: const BoxDecoration(
+            color: Colors.green,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                radius: 28,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, size: 36, color: Colors.green),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                prefs?.getString("username") ?? "Student",
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                _currentUserID ?? "",
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.dashboard_outlined),
+          title: const Text('Dashboard'),
+          onTap: () {
+            Navigator.pop(context);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.person_2_outlined),
+          title: const Text('Profile'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: const Text('Private Posts'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const PrivatePosts()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.post_add),
+          title: const Text('Create new Posts'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Studentcreateposts()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.create_outlined),
+          title: const Text('Participate in Events'),
+          onTap: () {
+            Navigator.pop(context);
+            if (_currentUserID != null) {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => Participate(userID: _currentUserID!)));
+            }
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.info_sharp),
+          title: const Text("Academics' Rooms"),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => AcademicRoomPage()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.recycling),
+          title: const Text('Rejected Posts'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => RejectedPostsPage()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.group),
+          title: const Text('Group Chats'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => ChattingGroupPage()));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.settings),
+          title: const Text('Settings'),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => settingsPage()));
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isWideScreen = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
       backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.grey[100],
-     // backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-  backgroundColor: Colors.white,
-  foregroundColor: Colors.green,
-  elevation: 1,
-  title: Row(
-    children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
-      ),
-      const SizedBox(width: 8), // Space between image and text
-      const Text(
-        "Students' Dashboard",
-        style: TextStyle(
-          color: Colors.green, // Ensure text color matches your theme
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.green,
+        elevation: 1,
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              height: 40,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Students' Dashboard",
+              style: TextStyle(
+                color: Colors.green,
+              ),
+            ),
+          ],
         ),
+        actions: isWideScreen ? null : null,
       ),
-    ],
-  ),
-        actions: isWideScreen
-            ? null
-            : [
-                PopupMenuButton<int>(
-                  icon: const Icon(Icons.menu),
-                  onSelected: _changePage,
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 0, child: Text("Dashboard")),
-                    const PopupMenuItem(value: 1, child: Text("Chat")),
-                    const PopupMenuItem(value: 2, child: Text("Settings")),
-                  ],
-                )
-              ],
-      ),
+      drawer: !isWideScreen ? Drawer(child: _buildDrawerNavigation()) : null,
       body: Row(
         children: [
           if (isWideScreen) _buildSideNav(),
@@ -427,7 +654,12 @@ Future<Size> _getImageSize(String imageUrl) async {
 ),
 Expanded(
   child: _chatGroups.isEmpty
-      ? Center(child: CircularProgressIndicator())
+      ? const Center(
+          child: Text(
+            "No groups found",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey),
+          ),
+        )
       : ListView.builder(
           itemCount: _chatGroups.length,
           itemBuilder: (context, index) {
@@ -468,7 +700,7 @@ Expanded(
                   }
                 },
               ),
-            );
+              );
           },
         ),
 ),
@@ -480,18 +712,6 @@ Expanded(
             ),
         ],
       ),
-      bottomNavigationBar: isWideScreen
-    ? null
-    : BottomNavigationBar(
-        onTap: _changePage,
-        currentIndex: 0, // Always show Dashboard as selected
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
-      ),
-
     );
   }
 }

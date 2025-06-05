@@ -22,7 +22,7 @@ class _Editactivity extends State<Editactivity> {
   }
 
   Future<void> fetchActivities() async {
-    final url = Uri.parse('http://192.168.10.5/public_html/FlutterGrad/fetch_activities.php');
+    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/fetch_activities.php');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -42,7 +42,7 @@ class _Editactivity extends State<Editactivity> {
     }
   }
 Future<void> updateActivityStatus(String activityID, String newStatus) async {
-  final url = Uri.parse('http://192.168.10.5/public_html/FlutterGrad/update_activity_status.php');
+  final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/update_activity_status.php');
   try {
     final response = await http.post(
       url,
@@ -83,7 +83,7 @@ Future<void> updateActivityStatus(String activityID, String newStatus) async {
       ),
       const SizedBox(width: 8), // Space between image and text
       const Text(
-        "Available Activities",
+        "Edit Activities",
         style: TextStyle(
           color: Colors.green, // Ensure text color matches your theme
         ),
@@ -149,11 +149,9 @@ Text('Expiry: ${activity['expiryDate']}'),
           ],
         ),
         SizedBox(height: 8),
-        Text('Date: ${activity['activityDate']}'),
+        Text('Date: ${activity['activityDate']}',style: TextStyle(fontSize: 16),),
         SizedBox(height: 8),
-        Text('Type: ${activity['participationType']}'),
-        SizedBox(height: 8),
-        Text('Details: ${activity['CONTENT']}'),
+        Text('Details: ${activity['CONTENT']}', style: TextStyle(fontSize: 19),),
         SizedBox(height: 8),
         Align(
   alignment: Alignment.centerRight,

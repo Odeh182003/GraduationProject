@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
-
 class Postsdetails extends StatefulWidget {
   final int postID;
 
@@ -28,16 +26,68 @@ class _PostsDetailsPageState extends State<Postsdetails> {
   }
 
   Future<void> fetchPostById() async {
-    final response = await http.get(Uri.parse(
-        'http://192.168.10.5/public_html/FlutterGrad/postsDetails.php?postID=${widget.postID}'));
+    try {
+      final response = await http.get(Uri.parse(
+          'http://192.168.10.3/public_html/FlutterGrad/postsDetails.php?postID=${widget.postID}'));
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data.containsKey('post')) {
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        // Check for error in response
+        if (data is Map && data.containsKey('error')) {
+          if (mounted) {
+            setState(() {
+              post = null;
+            });
+          }
+          // Optionally show a snackbar or dialog with error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['error'].toString())),
+          );
+          return;
+        }
+
+        if (data.containsKey('post') && data['post'] != null) {
+          if (mounted) {
+            setState(() {
+              // Convert all int values to String to avoid type errors in widgets
+              post = (data['post'] as Map<String, dynamic>).map<String, dynamic>((key, value) {
+                if (value is int) {
+                  return MapEntry(key, value.toString());
+                }
+                return MapEntry(key, value);
+              });
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              post = null;
+            });
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Post not found.")),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            post = null;
+          });
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to load post details.")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          post = data['post'];
+          post = null;
         });
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading post details.")),
+      );
     }
   }
 
@@ -46,7 +96,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
     required int commentCreatorID,
     required String commentText,
   }) async {
-    final url = Uri.parse('http://192.168.10.5/public_html/FlutterGrad/insertComment.php');
+    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/insertComment.php');
     final response = await http.post(
       url,
       body: {
@@ -69,47 +119,52 @@ class _PostsDetailsPageState extends State<Postsdetails> {
       );
     }
   }
-Future<List<Comment>> fetchComments(int postID) async {
-  final url = Uri.parse("http://192.168.10.5/public_html/FlutterGrad/getComments.php?postID=$postID");
-  final response = await http.get(url);
+  Future<List<Comment>> fetchComments(int postID) async {
+    final url = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getComments.php?postID=$postID");
+    final response = await http.get(url);
 
-  if (response.statusCode == 200) {
-    final data = json.decode(response.body);
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
 
-    if (data['comments'] is List) {
-      return (data['comments'] as List)
-          .map((c) => Comment.fromJson(c))
-          .toList();
+      if (data['comments'] is List) {
+        return (data['comments'] as List)
+            .map((c) => Comment.fromJson(c))
+            .toList();
+      }
     }
+    return [];
   }
-  return [];
-}
 
-
+  // Helper to detect Arabic text
+  bool _isArabic(String? text) {
+    if (text == null) return false;
+    final arabicRegExp = RegExp(r'[\u0600-\u06FF]');
+    return arabicRegExp.hasMatch(text);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-  backgroundColor: Colors.white,
-  foregroundColor: Colors.green,
-  elevation: 1,
-  title: Row(
-    children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
-      ),
-      const SizedBox(width: 8), // Space between image and text
-      const Text(
-        "Posts Details",
-        style: TextStyle(
-          color: Colors.green, // Ensure text color matches your theme
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.green,
+        elevation: 1,
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              height: 40, // Adjust height as needed
+            ),
+            const SizedBox(width: 8), // Space between image and text
+            const Text(
+              "Posts Details",
+              style: TextStyle(
+                color: Colors.green, // Ensure text color matches your theme
+              ),
+            ),
+          ],
         ),
-      ),
-    ],
-  ),
         actions: [
           IconButton(
             icon: Icon(Icons.settings),
@@ -142,34 +197,44 @@ Future<List<Comment>> fetchComments(int postID) async {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
-  child: ClipRRect(
-    borderRadius: BorderRadius.circular(16),
-    child: post!["media"] != null
-        ? Image.network(
-            'http://192.168.10.5/public_html/FlutterGrad/${post!["media"]}',
-            width: 250,
-            height: 250,
-            fit: BoxFit.cover,
-          )
-        : Container(
-            height: 250,
-            color: Colors.grey[300],
-            child: Center(
-              child: Icon(Icons.image, size: 100, color: Colors.grey[600]),
-            ),
-          ),
-  ),
-),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: (post!["media"] != null && post!["media"] is List && (post!["media"] as List).isNotEmpty)
+                            ? _buildMediaCarousel(post!["media"])
+                            : Container(
+                                height: 250,
+                                color: Colors.grey[300],
+                                child: Center(
+                                  child: Icon(Icons.image, size: 100, color: Colors.grey[600]),
+                                ),
+                              ),
+                      ),
+                    ),
 
                     const SizedBox(height: 20),
-                    Text(post!["posttitle"] ?? 'No Title',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    Directionality(
+                      textDirection: _isArabic(post!["posttitle"]) ? TextDirection.rtl : TextDirection.ltr,
+                      child: Text(
+                        post!["posttitle"] ?? 'No Title',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                     const SizedBox(height: 10),
-                    Text("By: ${post!["username"]} (${post!["POSTCREATORID"]})",
-                        style: TextStyle(color: Colors.black)),
+                    Directionality(
+                      textDirection: _isArabic(post!["username"]) ? TextDirection.rtl : TextDirection.ltr,
+                      child: Text(
+                        "By: ${post!["username"]} (${post!["POSTCREATORID"]})",
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    ),
                     const SizedBox(height: 10),
-                    Text(post!["CONTENT"] ?? '',
-                        style: Theme.of(context).textTheme.bodyLarge),
+                    Directionality(
+                      textDirection: _isArabic(post!["CONTENT"]) ? TextDirection.rtl : TextDirection.ltr,
+                      child: Text(
+                        post!["CONTENT"] ?? '',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     Divider(),
                     Row(
@@ -274,8 +339,14 @@ Future<List<Comment>> fetchComments(int postID) async {
                               margin: const EdgeInsets.symmetric(vertical: 6),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: ListTile(
-                                title: Text(comment.text),
-                                subtitle: Text("By user ${comment.creatorId} at ${comment.timestamp}"),
+                                title: Directionality(
+                                  textDirection: _isArabic(comment.text) ? TextDirection.rtl : TextDirection.ltr,
+                                  child: Text(comment.text),
+                                ),
+                                subtitle: Directionality(
+                                  textDirection: _isArabic(comment.username) ? TextDirection.rtl : TextDirection.ltr,
+                                  child: Text("By  ${comment.username}, ${comment.creatorId} at ${comment.timestamp}"),
+                                ),
                               ),
                             );
                           },
@@ -288,4 +359,75 @@ Future<List<Comment>> fetchComments(int postID) async {
             ),
     );
   }
-}  
+
+  Widget _buildMediaCarousel(dynamic media) {
+    // Accepts List from backend, fallback to empty list if not a List
+    final List<dynamic> mediaList = (media is List) ? media : [];
+    int currentIndex = 0;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Column(
+          children: [
+            SizedBox(
+              height: 400,
+              child: PageView.builder(
+                itemCount: mediaList.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    currentIndex = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final url = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
+                                : null,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[300],
+                          child: Icon(Icons.broken_image, size: 100, color: Colors.grey[600]),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (mediaList.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    mediaList.length,
+                    (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: currentIndex == index ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
