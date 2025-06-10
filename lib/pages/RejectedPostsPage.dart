@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,7 +31,7 @@ class _RejectedPostsPageState extends State<RejectedPostsPage> {
       }
 
       final response = await http.post(
-        Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_rejected_posts.php'),
+        Uri.parse('${ApiConfig.baseUrl}/get_rejected_posts.php'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'universityID': universityID}),
       );
@@ -82,7 +83,7 @@ class _RejectedPostsPageState extends State<RejectedPostsPage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  "http://192.168.10.3/public_html/FlutterGrad/${post['media']}",
+                  "${ApiConfig.baseUrl}/${post['media']}",
                   height: 200,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -106,9 +107,10 @@ class _RejectedPostsPageState extends State<RejectedPostsPage> {
   elevation: 1,
   title: Row(
     children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
+      Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
       const SizedBox(width: 8), // Space between image and text
       const Text(

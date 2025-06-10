@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class Privatepost {
   static const String _baseWebURL = 'http://localhost/public_html/FlutterGrad/getPublicPosts.php';
-  static const String _baseMobileURL = 'http://192.168.10.3/public_html/FlutterGrad/getPublicPosts.php';
+  static final String _baseMobileURL = '${ApiConfig.baseUrl}/getPublicPosts.php';
 
   static String get _baseURL => kIsWeb ? _baseWebURL : _baseMobileURL;
 

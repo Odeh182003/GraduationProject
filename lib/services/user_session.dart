@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,7 @@ class UserHelper {
       if(kIsWeb){
       url = Uri.parse("http://localhost/public_html/FlutterGrad/getInformation.php?universityID=$universityID");
     } else {
-      url = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getInformation.php?universityID=$universityID");
+      url = Uri.parse("${ApiConfig.baseUrl}/getInformation.php?universityID=$universityID");
     }
       final response = await http.get(Uri.parse(
         

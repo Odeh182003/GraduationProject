@@ -1,3 +1,4 @@
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -26,7 +27,7 @@ class _Participators extends State<Participators> {
   }
 
   Future<void> fetchActivities() async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/fetch_activities.php');
+    final url = Uri.parse('${ApiConfig.baseUrl}/fetch_activities.php');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -50,8 +51,8 @@ class _Participators extends State<Participators> {
 // ...existing code...
 
   Future<void> showParticipatorsDialog(String activityID) async {
-    final participatorsUrl = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/participators.php');
-    final requestsUrl = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/activity_requests.php?activityID=$activityID');
+    final participatorsUrl = Uri.parse('${ApiConfig.baseUrl}/participators.php');
+    final requestsUrl = Uri.parse('${ApiConfig.baseUrl}/activity_requests.php?activityID=$activityID');
 
     final payload = {
       "activityID": activityID,
@@ -116,10 +117,49 @@ class _Participators extends State<Participators> {
                                 IconButton(
                                   icon: Icon(Icons.close, color: Colors.red),
                                   tooltip: "Reject",
-                                  onPressed: () async {
-                                    await handleRequest(r['requestID'], 'reject');
-                                    Navigator.pop(context);
-                                    showParticipatorsDialog(activityID);
+                                  onPressed: () {
+                                    // Show a dialog to get the rejection reason
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        final reasonController = TextEditingController();
+                                        return AlertDialog(
+                                          title: Text("Reject Request"),
+                                          content: TextField(
+                                            controller: reasonController,
+                                            decoration: InputDecoration(hintText: "Enter rejection reason"),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              child: Text("Cancel"),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () async {
+                                                final reason = reasonController.text.trim();
+                                                if (reason.isNotEmpty) {
+                                                  await handleRequest(int.parse(r['requestID'].toString()), 'reject', reason: reason);
+                                                  Navigator.of(context).pop(); // Close the dialog
+                                                  Navigator.pop(context); // Close the main dialog
+                                                  showParticipatorsDialog(activityID); // Refresh
+                                                } else {
+                                                  // Show an error if the reason is empty
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text("Rejection reason cannot be empty.")),
+                                                  );
+                                                }
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.green,
+                                              ),
+                                              child: Text("Reject", style: TextStyle(color: Colors.white, )),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
                                   },
                                 ),
                               ],
@@ -177,16 +217,20 @@ class _Participators extends State<Participators> {
     }
   }
 
-  Future<void> handleRequest(int requestID, String action) async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/handle_request_participation.php');
+  Future<void> handleRequest(int requestID, String action, {String? reason}) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/handle_request_participation.php');
     try {
+      final body = {
+        "requestID": requestID,
+        "action": action,
+      };
+      if (action == 'reject' && reason != null) {
+        body['reason'] = reason;
+      }
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: json.encode({
-          "requestID": requestID,
-          "action": action,
-        }),
+        body: json.encode(body),
       );
       final jsonData = json.decode(response.body);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -223,7 +267,11 @@ class _Participators extends State<Participators> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset('assets/logo.png', height: 40),
+            Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8),
             const Text("Available Activities", style: TextStyle(color: Colors.green)),
           ],
@@ -327,7 +375,7 @@ class _Participators extends State<Participators> {
                                             ),
                                             Text(
                                               'Status: ${activity['status']}',
-                                              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold,fontSize: 24),
+                                              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold,fontSize: 14),
                                             ),
                                           ],
                                         ),

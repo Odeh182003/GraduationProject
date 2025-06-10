@@ -1,4 +1,5 @@
 import 'package:bzu_leads/pages/login_page.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 //import 'package:bzu_leads/themes/light_theme.dart';
 import 'package:bzu_leads/themes/theme_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -12,6 +13,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ApiConfig.loadBaseUrl();
  // NotiService().initNotification(); // Initialize notifications
   try {
     if (kIsWeb) {

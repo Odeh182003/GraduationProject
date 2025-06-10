@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:bzu_leads/pages/EditActivity.dart';
 import 'package:bzu_leads/pages/OfficialNotification.dart';
 import 'package:bzu_leads/pages/StatisticsDashboard.dart';
-import 'package:bzu_leads/pages/calender.dart';
+//import 'package:bzu_leads/pages/calender.dart';
 import 'package:bzu_leads/pages/chattingGroup_page.dart';
 import 'package:bzu_leads/pages/chatting_page.dart';
 import 'package:bzu_leads/pages/createCostumeGroup.dart';
@@ -15,6 +15,8 @@ import 'package:bzu_leads/pages/private_posts.dart';
 import 'package:bzu_leads/pages/profile_page.dart';
 import 'package:bzu_leads/pages/registration.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
+import 'package:bzu_leads/services/editPosts.dart';
 import 'package:bzu_leads/services/group_service.dart';
 import 'package:bzu_leads/services/post_service.dart';
 import 'package:flutter/material.dart';
@@ -199,29 +201,30 @@ Future<void> _onSideNavSelected(int index) async {
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => Postsdetails(postID: int.parse(post['postID'])),
-            ),
-          );
-        },
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Postsdetails(postID: int.parse(post['postID'])),
+          ),
+        );
+      },
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header Row with Avatar and user info
-              Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.green,
-                    child: Icon(Icons.person, color: Colors.white),
-                  ),
-                  const SizedBox(width: 10),
+             Row(
+              children: [
+                const CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.green,
+                  child: Icon(Icons.person, color: Colors.white),
+                ),
+              //  const SizedBox(width: 10),
+                 const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,13 +245,32 @@ Future<void> _onSideNavSelected(int index) async {
                       ],
                     ),
                   ),
-                  Text(
-                    post['DATECREATED'],
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        post['DATECREATED'],
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      if (_currentUserID != null &&
+                          post['universityID']?.toString() == _currentUserID)
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.green),
+                          tooltip: "Edit Post",
+                          onPressed: () => showEditPostDialog(
+                          context: context,
+                          post: post,
+                          currentUserID: _currentUserID,
+                          prefs: prefs,
+                          reloadPosts: fetchPosts,
+),
+                        ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+            const SizedBox(height: 10),
               // Divider to separate header and content
               Container(
                 height: 1,
@@ -289,7 +311,6 @@ Future<void> _onSideNavSelected(int index) async {
       ),
     );
   }
-
   Widget _buildMediaCarousel(List<dynamic> mediaList) {
     // Show all media as images in a sweep (PageView) as before
     int currentIndex = 0;
@@ -307,7 +328,7 @@ Future<void> _onSideNavSelected(int index) async {
                   });
                 },
                 itemBuilder: (context, index) {
-                  final imgUrl = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
+                  final imgUrl = "${ApiConfig.baseUrl}/${mediaList[index]}";
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.network(
@@ -411,9 +432,9 @@ List<Future<void> Function()> get _navigationActions {
         );
       }
     },
-    () async {
+   /* () async {
       Navigator.push(context, MaterialPageRoute(builder: (_) => Calender()));
-    },
+    },*/
     () async {
       Navigator.push(context, MaterialPageRoute(builder: (_) => settingsPage()));
     },
@@ -473,10 +494,10 @@ List<NavigationRailDestination> get _navigationDestinations {
       icon: Icon(Icons.group_add),
       label: Text("Costume Groups"),
     ),
-    const NavigationRailDestination(
+   /* const NavigationRailDestination(
       icon: Icon(Icons.calendar_month_rounded),
       label: Text("Calender"),
-    ),
+    ),*/
     const NavigationRailDestination(
       icon: Icon(Icons.settings),
       label: Text("Settings"),
@@ -566,6 +587,15 @@ List<NavigationRailDestination> get _navigationDestinations {
               Navigator.push(context, MaterialPageRoute(builder: (context) => OfficialNotification()));
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.group),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            title: const Text('Chatting Groups'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => ChattingGroupPage()));
+            },
+          ),
         ListTile(
           leading: const Icon(Icons.post_add),
           title: const Text('Create new Posts'),
@@ -644,14 +674,14 @@ List<NavigationRailDestination> get _navigationDestinations {
             }
           },
         ),
-        ListTile(
+        /*ListTile(
           leading: const Icon(Icons.calendar_month_rounded),
           title: const Text('Calender'),
           onTap: () {
             Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => Calender()));
           },
-        ),
+        ),*/
         ListTile(
           leading: const Icon(Icons.settings),
           title: const Text('Settings'),
@@ -675,9 +705,10 @@ List<NavigationRailDestination> get _navigationDestinations {
   elevation: 1,
   title: Row(
     children: [
-      Image.asset(
-        'assets/logo.png',
+      Image.network(
+        ApiConfig.systemLogoUrl,
         height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
       const SizedBox(width: 8),
       const Text(

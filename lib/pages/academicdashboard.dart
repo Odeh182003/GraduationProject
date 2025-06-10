@@ -18,6 +18,8 @@ import 'package:bzu_leads/pages/private_chats.dart';
 import 'package:bzu_leads/pages/private_posts.dart';
 import 'package:bzu_leads/pages/profile_page.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
+import 'package:bzu_leads/services/editPosts.dart';
 import 'package:bzu_leads/services/group_service.dart';
 import 'package:bzu_leads/services/post_service.dart';
 //import 'package:flutter/foundation.dart';
@@ -210,7 +212,8 @@ Widget _buildPostCard(dynamic post) {
     }
   }
 
-  Future<void> _downloadFile(String url, String fileName) async {
+
+  Future<void> downloadFile(String url, String fileName) async {
     try {
       Directory? downloadsDir;
       try {
@@ -286,34 +289,54 @@ Widget _buildPostCard(dynamic post) {
                   backgroundColor: Colors.green,
                   child: Icon(Icons.person, color: Colors.white),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              //  const SizedBox(width: 10),
+                 const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post['username'],
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "(${post['universityID']})",
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        post['username'],
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        post['DATECREATED'],
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "(${post['universityID']})",
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      if (_currentUserID != null &&
+                          post['universityID']?.toString() == _currentUserID)
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.green),
+                          tooltip: "Edit Post",
+                          onPressed: () => showEditPostDialog(
+                          context: context,
+                          post: post,
+                          currentUserID: _currentUserID,
+                          prefs: prefs,
+                          reloadPosts: fetchPosts,
+),
+                        ),
                     ],
                   ),
-                ),
-                Text(
-                  post['DATECREATED'],
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                ],
+              ),
+            const SizedBox(height: 10),
             // Divider to separate header and content
             Container(
               height: 1,
@@ -360,12 +383,12 @@ Widget _buildPostCard(dynamic post) {
                     const Text("Attachments:", style: TextStyle(fontWeight: FontWeight.w600)),
                     ...files.map((file) {
                       final fileName = file.split('/').last;
-                      final fileUrl = "http://192.168.10.3/public_html/FlutterGrad/$file";
+                      final fileUrl = "http://localhost/public_html/FlutterGrad/$file";
                       return ListTile(
                         leading: Icon(Icons.attach_file, color: Colors.green),
                         title: Text(fileName, overflow: TextOverflow.ellipsis),
                         onTap: () async {
-                          await _downloadFile(fileUrl, fileName);
+                          await downloadFile(fileUrl, fileName);
                         },
                         trailing: Icon(Icons.download, color: Colors.green),
                       );
@@ -395,22 +418,22 @@ Widget _buildMediaCarousel(List<String> mediaList) {
                   currentIndex = index;
                 });
               },
-              itemBuilder: (context, index) {
-                final url = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    url,
-                    fit: BoxFit.contain,
-                    height: 250,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[300],
-                      height: 250,
-                      child: Icon(Icons.broken_image, size: 100, color: Colors.grey[600]),
-                    ),
-                  ),
-                );
-              },
+             itemBuilder: (context, index) {
+            final imageUrl = "${ApiConfig.baseUrl}/${mediaList[index]}"; 
+            return ClipRRect(
+             borderRadius: BorderRadius.circular(16),
+             child: Image.network(
+             imageUrl,
+             fit: BoxFit.contain,
+             height: 250,
+             errorBuilder: (context, error, stackTrace) => Container(
+             color: Colors.grey[300],
+             height: 250,
+             child: Icon(Icons.broken_image, size: 100, color: Colors.grey[600]),
+      ),
+    ),
+  );
+},
             ),
           ),
           if (mediaList.length > 1)
@@ -641,29 +664,28 @@ void _changePage(int index) {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.green,
-        elevation: 1,
-        title: Row(
-          children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40, // Adjust height as needed
-            ),
-            const SizedBox(width: 8), // Space between image and text
-            const Text(
-              "academics' Dashboard",
-              style: TextStyle(
-                color: Colors.green, // Ensure text color matches your theme
-              ),
-            ),
-          ],
-        ),
-        // Remove PopupMenuButton; small screens now use the Drawer icon
-        actions: isWideScreen
-            ? null
-            : null,
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
+      const SizedBox(width: 8),
+      const Text(
+        "academics' Dashboard",
+        style: TextStyle(
+          color: Colors.green,
+        ),
+      ),
+    ],
+  ),
+  actions: isWideScreen ? null : null,
+),
+
       // NEW: Use a Drawer on small screens for complete navigation
       drawer: !isWideScreen ? Drawer(child: _buildDrawerNavigation()) : null,
       body: Row(
@@ -740,7 +762,7 @@ void _changePage(int index) {
                                                   fontSize: 16,
                                                 ),
                                               ),
-                                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                              //trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                               onTap: () {
                                                 String? senderUsername = prefs?.getString("username");
                                                 String? academicId = _currentUserID;

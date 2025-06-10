@@ -1,4 +1,5 @@
 import 'package:bzu_leads/components/my_textfields.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 //import 'package:shared_preferences/shared_preferences.dart';
@@ -98,11 +99,27 @@ class _PrivateChattingPageState extends State<PrivateChattingPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text(widget.peerName),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         foregroundColor: Colors.green,
-        elevation: 0,
+        elevation: 1,
+        title: Row(
+          children: [
+            Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
+            const SizedBox(width: 8),
+             Text(
+              widget.currentUserName,//peerName,
+              style: TextStyle(
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+      ),
+      
       body: Column(
         children: [
           Expanded(child: _buildMessageList()),

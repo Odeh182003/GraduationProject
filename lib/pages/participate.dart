@@ -1,3 +1,4 @@
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -20,7 +21,7 @@ class _Participate extends State<Participate> {
   final List<String> statusOptions = ['All', 'Cancelled', 'Pending', 'Done'];
 
   // Track participation status for each activity
-  Map<String, String> participationStatus = {}; // activityID -> 'pending'/'accepted'/'rejected'/null
+  Map<String, dynamic> participationStatus = {}; // activityID -> {status, reason, count}
 
   @override
   void initState() {
@@ -30,7 +31,7 @@ class _Participate extends State<Participate> {
   }
 
   Future<void> fetchActivities() async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/fetch_activities.php');
+    final url = Uri.parse('${ApiConfig.baseUrl}/fetch_activities.php');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -54,15 +55,15 @@ class _Participate extends State<Participate> {
 
   // Fetch participation status for this user for all activities
   Future<void> fetchParticipationStatuses() async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/user_participation_status.php?userID=${widget.userID}');
+    final url = Uri.parse('${ApiConfig.baseUrl}/user_participation_status.php?userID=${widget.userID}');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         if (jsonData['status'] == 'success' && mounted) {
           setState(() {
-            // Map: activityID -> status
-            participationStatus = Map<String, String>.from(jsonData['statuses']);
+            // Map: activityID -> {status, reason, count}
+            participationStatus = Map<String, dynamic>.from(jsonData['statuses']);
           });
         }
       }
@@ -72,34 +73,39 @@ class _Participate extends State<Participate> {
   }
 
   // Send participation request (not direct participation)
-  Future<void> participateInActivity(String activityID) async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/request_participation.php');
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({
-          "userID": widget.userID,
-          "activityID": activityID,
-        }),
+  bool isSubmitting = false;
+
+Future<void> participateInActivity(String activityID) async {
+  if (isSubmitting) return;
+  setState(() => isSubmitting = true);
+  final url = Uri.parse('${ApiConfig.baseUrl}/request_participation.php');
+  try {
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: json.encode({
+        "userID": widget.userID,
+        "activityID": activityID,
+      }),
+    );
+    final jsonData = json.decode(response.body);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(jsonData['message'] ?? 'Request sent.')),
       );
-      final jsonData = json.decode(response.body);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(jsonData['message'] ?? 'Request sent.')),
-        );
-      }
-      // Refresh participation statuses after request
-      fetchParticipationStatuses();
-    } catch (e) {
-      print('Error sending participation request: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sending participation request.')),
-        );
-      }
     }
+    fetchParticipationStatuses();
+  } catch (e) {
+    print('Error sending participation request: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sending participation request.')),
+      );
+    }
+  } finally {
+    setState(() => isSubmitting = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -121,10 +127,11 @@ class _Participate extends State<Participate> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40, // Adjust height as needed
-            ),
+            Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8), // Space between image and text
             const Text(
               "Available Activities",
@@ -211,10 +218,13 @@ class _Participate extends State<Participate> {
                                 }
 
                                 // Participation status for this activity
-                                final String? partStatus = participationStatus[activity['activityID'].toString()];
+                                final Map<String, dynamic>? partStatus = participationStatus[activity['activityID'].toString()];
+                                final String status = partStatus?['status'] ?? '';
+                                final String? rejectionReason = partStatus?['rejection_reason'];
+                                final int rejectionCount = (partStatus?['rejection_count'] ?? 0) as int;
 
                                 Widget participationSection;
-                                if (partStatus == 'pending') {
+                                if (status == 'pending') {
                                   participationSection = Row(
                                     children: [
                                       Icon(Icons.hourglass_top, color: Colors.orange),
@@ -225,7 +235,7 @@ class _Participate extends State<Participate> {
                                       ),
                                     ],
                                   );
-                                } else if (partStatus == 'accepted') {
+                                } else if (status == 'accepted') {
                                   participationSection = Row(
                                     children: [
                                       Icon(Icons.check_circle, color: Colors.green),
@@ -236,18 +246,58 @@ class _Participate extends State<Participate> {
                                       ),
                                     ],
                                   );
-                                } else if (partStatus == 'rejected') {
-                                  participationSection = Row(
-                                    children: [
-                                      Icon(Icons.cancel, color: Colors.red),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        "Your participation was rejected.",
-                                        style: TextStyle(color: Colors.red[800], fontWeight: FontWeight.w600),
-                                      ),
-                                    ],
-                                  );
-                                } else if (partStatus == 'participated') {
+                                } else if (status == 'rejected') {
+  if (rejectionCount >= 3) {
+    participationSection = Text(
+      "You have reached the maximum participation attempts.",
+      style: TextStyle(color: Colors.grey[600]),
+    );
+  } else {
+    participationSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.cancel, color: Colors.red),
+            SizedBox(width: 6),
+            Text(
+              "Your participation was rejected.",
+              style: TextStyle(color: Colors.red[800], fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        if (rejectionReason != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 28.0, top: 4),
+            child: Text(
+              "Reason: $rejectionReason",
+              style: TextStyle(color: Colors.grey[700], fontStyle: FontStyle.italic),
+            ),
+          ),
+        Text(
+          "Rejection Count: $rejectionCount",
+          style: TextStyle(color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton(
+            onPressed: (activity['status'] == 'Done' || activity['status'] == 'Cancelled')
+                ? null
+                : () {
+                    participateInActivity(activity['activityID']);
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Participate'),
+          ),
+        ),
+      ],
+    );
+  }
+} else if (status == 'participated') {
                                   participationSection = Row(
                                     children: [
                                       Icon(Icons.check_circle, color: Colors.blue),
@@ -259,21 +309,29 @@ class _Participate extends State<Participate> {
                                     ],
                                   );
                                 } else {
-                                  participationSection = Align(
-                                    alignment: Alignment.centerRight,
-                                    child: ElevatedButton(
-                                      onPressed: (activity['status'] == 'Done' || activity['status'] == 'Cancelled')
-                                          ? null // Disable button if activity is Done or Cancelled
-                                          : () {
-                                              participateInActivity(activity['activityID']);
-                                            },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        foregroundColor: Colors.white,
+                                  // Check rejection count
+                                  if (rejectionCount >= 3) {
+                                    participationSection = Text(
+                                      "You have reached the maximum participation attempts.",
+                                      style: TextStyle(color: Colors.grey[600]),
+                                    );
+                                  } else {
+                                    participationSection = Align(
+                                      alignment: Alignment.centerRight,
+                                      child: ElevatedButton(
+                                        onPressed: (activity['status'] == 'Done' || activity['status'] == 'Cancelled')
+                                            ? null // Disable button if activity is Done or Cancelled
+                                            : () {
+                                                participateInActivity(activity['activityID']);
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Participate'),
                                       ),
-                                      child: const Text('Participate'),
-                                    ),
-                                  );
+                                    );
+                                  }
                                 }
 
                                 return Card(

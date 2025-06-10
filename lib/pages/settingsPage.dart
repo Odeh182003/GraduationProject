@@ -1,6 +1,7 @@
 import 'dart:convert';
 //import 'package:crypto/crypto.dart';
 //import 'package:bzu_leads/services/noti_service.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:http/http.dart' as http;
 import 'package:bzu_leads/components/my_button.dart';
 import 'package:bzu_leads/pages/profile_page.dart';
@@ -100,7 +101,7 @@ class settingsPage extends StatelessWidget {
       String universityID, String oldPassword, String newPassword) async {
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.10.3/public_html/FlutterGrad/changePass.php'),
+        Uri.parse('${ApiConfig.baseUrl}/changePass.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'universityID': universityID,
@@ -125,9 +126,10 @@ class settingsPage extends StatelessWidget {
   elevation: 1,
   title: Row(
     children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
+      Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
       const SizedBox(width: 8), // Space between image and text
       const Text(

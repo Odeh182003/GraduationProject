@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:bzu_leads/components/my_button.dart';
 import 'package:bzu_leads/components/my_textfields.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -35,7 +36,7 @@ class _LoginState extends State<Login> {
     if (kIsWeb) {
       url = Uri.parse("http://localhost/public_html/FlutterGrad/login.php");
     } else {
-      url = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/login.php");
+      url = Uri.parse("${ApiConfig.baseUrl}/login.php");
     }
 
     try {
@@ -158,9 +159,11 @@ class _LoginState extends State<Login> {
           Positioned(
             top: 40,
             left: 40,
-            child: Image.asset(
-              'assets/logo.png',
-              height: 150,
+            child: Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 140,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      
             ),
           ),
 

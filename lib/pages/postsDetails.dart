@@ -1,5 +1,6 @@
 import 'package:bzu_leads/pages/profile_page.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:bzu_leads/services/comments.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,7 +29,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
   Future<void> fetchPostById() async {
     try {
       final response = await http.get(Uri.parse(
-          'http://192.168.10.3/public_html/FlutterGrad/postsDetails.php?postID=${widget.postID}'));
+          '${ApiConfig.baseUrl}/postsDetails.php?postID=${widget.postID}'));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -96,7 +97,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
     required int commentCreatorID,
     required String commentText,
   }) async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/insertComment.php');
+    final url = Uri.parse('${ApiConfig.baseUrl}/insertComment.php');
     final response = await http.post(
       url,
       body: {
@@ -120,7 +121,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
     }
   }
   Future<List<Comment>> fetchComments(int postID) async {
-    final url = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getComments.php?postID=$postID");
+    final url = Uri.parse("${ApiConfig.baseUrl}/getComments.php?postID=$postID");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -152,10 +153,11 @@ class _PostsDetailsPageState extends State<Postsdetails> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40, // Adjust height as needed
-            ),
+           Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8), // Space between image and text
             const Text(
               "Posts Details",
@@ -379,7 +381,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
                   });
                 },
                 itemBuilder: (context, index) {
-                  final url = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
+                  final url = "${ApiConfig.baseUrl}/${mediaList[index]}";
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(

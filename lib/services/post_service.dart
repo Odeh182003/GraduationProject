@@ -1,11 +1,12 @@
 import 'dart:convert';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class PostService {
   static final String _baseUrl = kIsWeb
       ? "http://localhost/public_html/FlutterGrad/getPublicPosts.php"
-      : "http://192.168.10.3/public_html/FlutterGrad/getPublicPosts.php";
+      : "${ApiConfig.baseUrl}/getPublicPosts.php";
 
   static Future<List<dynamic>> fetchPublicPosts() async {
     try {

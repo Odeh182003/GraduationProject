@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:http/http.dart' as http;
 
 class RegistrationService {
@@ -19,7 +20,7 @@ class RegistrationService {
       String? officeHours,
       String? room,
       String? hobbies}) async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/registration.php');
+    final url = Uri.parse('${ApiConfig.baseUrl}/registration.php');
     try {
       final response = await http.post(
         url,

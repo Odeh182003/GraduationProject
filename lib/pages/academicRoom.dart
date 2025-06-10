@@ -1,4 +1,5 @@
 import 'package:bzu_leads/pages/chatting_private_page.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -33,7 +34,7 @@ class _AcademicRoomPageState extends State<AcademicRoomPage> {
       return;
     }
 
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/academicsInfo.php?facultyID=$facultyID');
+    final url = Uri.parse('${ApiConfig.baseUrl}/academicsInfo.php?facultyID=$facultyID');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -72,10 +73,11 @@ class _AcademicRoomPageState extends State<AcademicRoomPage> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40,
-            ),
+            Image.network(
+            ApiConfig.systemLogoUrl,
+            height: 40,
+            errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8),
             const Text(
               "Academics' Information",

@@ -1,3 +1,4 @@
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -35,7 +36,7 @@ class _CreateCustomGroupScreenState extends State<CreateCustomGroupScreen> {
   }
 
   Future<void> _fetchFaculties() async {
-    final response = await http.get(Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_faculties.php'));
+    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/get_faculties.php'));
     if (response.statusCode == 200) {
       final List<dynamic> faculties = json.decode(response.body);
       setState(() {
@@ -55,7 +56,7 @@ class _CreateCustomGroupScreenState extends State<CreateCustomGroupScreen> {
   }
 
   Future<void> _fetchDepartments(String facultyID) async {
-    final response = await http.get(Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_departments.php?facultyID=$facultyID'));
+    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/get_departments.php?facultyID=$facultyID'));
     if (response.statusCode == 200) {
       final List<dynamic> departments = json.decode(response.body);
       setState(() {
@@ -71,9 +72,9 @@ class _CreateCustomGroupScreenState extends State<CreateCustomGroupScreen> {
   Future<void> _fetchUsers({String? facultyID, String? departmentID}) async {
     String url;
     if (departmentID != null && departmentID.isNotEmpty) {
-      url = 'http://192.168.10.3/public_html/FlutterGrad/get_users.php?department=$departmentID';
+      url = '${ApiConfig.baseUrl}/get_users.php?department=$departmentID';
     } else if (facultyID != null && facultyID.isNotEmpty) {
-      url = 'http://192.168.10.3/public_html/FlutterGrad/get_users.php?facultyID=$facultyID';
+      url = '${ApiConfig.baseUrl}/get_users.php?facultyID=$facultyID';
     } else {
       setState(() {
         _users = [];
@@ -104,7 +105,7 @@ class _CreateCustomGroupScreenState extends State<CreateCustomGroupScreen> {
       return;
     }
     final response = await http.get(
-      Uri.parse('http://192.168.10.3/public_html/FlutterGrad/search_users.php?query=$query'),
+      Uri.parse('${ApiConfig.baseUrl}/search_users.php?query=$query'),
     );
     if (response.statusCode == 200) {
       final List<dynamic> users = json.decode(response.body);
@@ -129,7 +130,7 @@ class _CreateCustomGroupScreenState extends State<CreateCustomGroupScreen> {
     if (_groupNameController.text.isEmpty || _selectedUsers.isEmpty) return;
 
     final response = await http.post(
-      Uri.parse('http://192.168.10.3/public_html/FlutterGrad/create_custom_group.php'),
+      Uri.parse('${ApiConfig.baseUrl}/create_custom_group.php'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'groupName': _groupNameController.text,
@@ -162,10 +163,11 @@ class _CreateCustomGroupScreenState extends State<CreateCustomGroupScreen> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40,
-            ),
+            Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8),
             const Text(
               "Create Custom Group",

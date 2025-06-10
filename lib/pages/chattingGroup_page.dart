@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 //import 'package:bzu_leads/components/user_tile.dart';
@@ -98,15 +99,16 @@ Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: Theme.of(context).colorScheme.surface,
     appBar: AppBar(
-  backgroundColor: Colors.white,
-  foregroundColor: Colors.green,
-  elevation: 1,
-  title: Row(
-    children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
-      ),
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.green,
+      elevation: 1,
+      title: Row(
+        children: [
+          Image.network(
+            ApiConfig.systemLogoUrl,
+            height: 40,
+            errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+          ),
       const SizedBox(width: 8), // Space between image and text
       const Text(
         "Chatting Groups Page",

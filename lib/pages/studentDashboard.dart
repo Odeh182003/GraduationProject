@@ -1,6 +1,8 @@
 //import 'package:bzu_leads/components/my_drawer.dart';
 import 'dart:async';
 import 'dart:io';
+import 'package:bzu_leads/services/ApiConfig.dart';
+import 'package:bzu_leads/services/editPosts.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_file/open_file.dart';
@@ -187,6 +189,9 @@ Future<void> _initializePreferences() async {
       }
     }
 
+    // Get current user ID for edit permission
+    final String? currentUserId = _currentUserID;
+
     Future<void> _downloadFile(String url, String fileName) async {
       try {
         Directory? downloadsDir;
@@ -223,7 +228,6 @@ Future<void> _initializePreferences() async {
         );
       }
     }
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -257,6 +261,7 @@ Future<void> _initializePreferences() async {
             children: [
               // Header Row with Avatar and user info
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const CircleAvatar(
                     radius: 24,
@@ -284,9 +289,28 @@ Future<void> _initializePreferences() async {
                       ],
                     ),
                   ),
-                  Text(
-                    post['DATECREATED'],
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        post['DATECREATED'],
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      if (currentUserId != null &&
+                          post['universityID']?.toString() == currentUserId)
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.green),
+                          tooltip: "Edit Post",
+                          onPressed: () => showEditPostDialog(
+                          context: context,
+                          post: post,
+                         currentUserID: _currentUserID,
+                        prefs: prefs,
+                        reloadPosts: fetchPosts,
+),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -337,7 +361,7 @@ Future<void> _initializePreferences() async {
                       const Text("Attachments:", style: TextStyle(fontWeight: FontWeight.w600)),
                       ...files.map((file) {
                         final fileName = file.split('/').last;
-                        final fileUrl = "http://192.168.10.3/public_html/FlutterGrad/$file";
+                        final fileUrl = "${ApiConfig.baseUrl}/$file";
                         return ListTile(
                           leading: Icon(Icons.attach_file, color: Colors.green),
                           title: Text(fileName, overflow: TextOverflow.ellipsis),
@@ -373,7 +397,7 @@ Future<void> _initializePreferences() async {
                   });
                 },
                 itemBuilder: (context, index) {
-                  final url = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
+                  final url = "${ApiConfig.baseUrl}/${mediaList[index]}";
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.network(
@@ -593,10 +617,11 @@ Future<void> _initializePreferences() async {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40,
-            ),
+            Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8),
             const Text(
               "Students' Dashboard",

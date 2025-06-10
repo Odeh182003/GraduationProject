@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:bzu_leads/pages/postsDetails.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 //import 'package:bzu_leads/pages/privatepostsdetails.dart';
 //import 'package:url_launcher/url_launcher.dart';
 import 'package:bzu_leads/services/PrivatePost.dart';
+import 'package:bzu_leads/services/editPosts.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
@@ -22,6 +24,8 @@ class PrivatePosts extends StatefulWidget {
 }
 
 class _PrivatePostsState extends State<PrivatePosts> {
+  String? _currentUserID;
+SharedPreferences? prefs;
   List<dynamic> posts = [];
   bool isLoading = true;
   String message = "Loading posts...";
@@ -136,6 +140,8 @@ class _PrivatePostsState extends State<PrivatePosts> {
     }
 
     Future<void> _downloadFile(String url, String fileName) async {
+      prefs = await SharedPreferences.getInstance();
+  _currentUserID = prefs?.getString("universityID");
       try {
         Directory? downloadsDir;
         // Try to get the downloads directory (works on Android, iOS, desktop)
@@ -199,7 +205,7 @@ class _PrivatePostsState extends State<PrivatePosts> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => Postsdetails(postID: post['postID']),
+                builder: (context) => Postsdetails(postID: int.parse(post['postID'].toString())),
               ),
             );
           },
@@ -237,10 +243,29 @@ class _PrivatePostsState extends State<PrivatePosts> {
                         ],
                       ),
                     ),
-                    Text(
-                      post['DATECREATED'],
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
+                   const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        post['DATECREATED'],
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      if (_currentUserID != null &&
+                          post['universityID']?.toString() == _currentUserID)
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.green),
+                          tooltip: "Edit Post",
+                          onPressed: () => showEditPostDialog(
+                          context: context,
+                          post: post,
+                         currentUserID: _currentUserID,
+                        prefs: prefs,
+                        reloadPosts: fetchPosts,
+),
+                        ),
+                    ],
+                  ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -290,7 +315,7 @@ class _PrivatePostsState extends State<PrivatePosts> {
                         const Text("Attachments:", style: TextStyle(fontWeight: FontWeight.w600)),
                         ...files.map((file) {
                           final fileName = file.split('/').last;
-                          final fileUrl = "http://192.168.10.3/public_html/FlutterGrad/$file";
+                          final fileUrl = "${ApiConfig.baseUrl}/$file";
                           return ListTile(
                             leading: Icon(Icons.attach_file, color: Colors.green),
                             title: Text(fileName, overflow: TextOverflow.ellipsis),
@@ -327,7 +352,7 @@ class _PrivatePostsState extends State<PrivatePosts> {
                   });
                 },
                 itemBuilder: (context, index) {
-                  final url = "http://192.168.10.3/public_html/FlutterGrad/${mediaList[index]}";
+                  final url = "${ApiConfig.baseUrl}/${mediaList[index]}";
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.network(
@@ -379,10 +404,11 @@ class _PrivatePostsState extends State<PrivatePosts> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40, // Adjust height as needed
-            ),
+           Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8), // Space between image and text
             const Text(
               "Private Posts",

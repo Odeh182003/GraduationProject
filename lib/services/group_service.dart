@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class GroupService {
   static final String _baseUrl = kIsWeb
       ? "http://localhost/public_html/FlutterGrad/create_group.php"
-      : "http://192.168.10.3/public_html/FlutterGrad/create_group.php";
+      : "${ApiConfig.baseUrl}/create_group.php";
 
   static Future<List<Map<String, dynamic>>> getChatGroups(String universityID) async {
     final prefs = await SharedPreferences.getInstance();

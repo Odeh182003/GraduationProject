@@ -1,4 +1,5 @@
 import 'package:bzu_leads/pages/chatting_private_page.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -119,8 +120,8 @@ class _PrivateChatsState extends State<PrivateChats> {
       context,
       MaterialPageRoute(
         builder: (context) => PrivateChattingPage(
-          peerId: chat['senderId'],
-          peerName: chat['senderUsername'],
+          peerId: chat['universityID'],//senderID
+          peerName: chat['username'],//senderName
           currentUserId: academicId!,
           currentUserName: academicName!,
         ),
@@ -132,10 +133,25 @@ class _PrivateChatsState extends State<PrivateChats> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Private Chats"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.green,
-        elevation: 1,
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Private Chats",
+        style: TextStyle(
+          color: Colors.green, 
+        ),
+      ),
+    ],
+  ),
       ),
       body: academicId == null
           ? const Center(child: CircularProgressIndicator())

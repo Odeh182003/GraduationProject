@@ -2,6 +2,7 @@ import 'dart:io';
 //import 'package:bzu_leads/pages/chattingGroup_page.dart';
 //import 'package:bzu_leads/pages/private_posts.dart';
 //import 'package:bzu_leads/pages/settingsPage.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -52,7 +53,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> getUserData() async {
     if (userID == null) return;
 
-    final url = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getInformation.php?universityID=$userID");
+    final url = Uri.parse("${ApiConfig.baseUrl}/getInformation.php?universityID=$userID");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -113,7 +114,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse("http://192.168.10.3/public_html/FlutterGrad/updateUserInformation.php"),
+      Uri.parse("${ApiConfig.baseUrl}/updateUserInformation.php"),
     );
 
     request.fields['universityID'] = userID!;
@@ -150,8 +151,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String fixImageUrl(String imageUrl) {
     String baseUrl = kIsWeb
-        ? "http://localhost/public_html/FlutterGrad/"
-        : "http://192.168.10.3/public_html/FlutterGrad/";
+        ? "${ApiConfig.baseUrl}/"
+        : "${ApiConfig.baseUrl}/";
 
     if (!imageUrl.startsWith("http")) {
       return "$baseUrl${imageUrl.replaceAll("\\", "/")}";
@@ -179,10 +180,11 @@ Widget build(BuildContext context) {
       elevation: 1,
       title: Row(
         children: [
-          Image.asset(
-            'assets/logo.png',
-            height: 40, // Adjust height as needed
-          ),
+          Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
           const SizedBox(width: 8), // Space between image and text
           const Text(
             "Profile Page",
@@ -285,11 +287,18 @@ Widget studentSection() {
         decoration: const InputDecoration(labelText: "Minor"),
         controller: TextEditingController(text: userData?["minor"] ?? ""),
       ),
+      SizedBox(height: 14,),
       TextField(
-        decoration: const InputDecoration(labelText: "Faculty Name"),
         controller: TextEditingController(text: userData?["facultyName"] ?? ""),
+        decoration: const InputDecoration(
+          labelText: "Faculty Name",
+          border: OutlineInputBorder(), // optional for better visibility
+        ),
+        maxLines: 2, // Allows unlimited lines (makes it expand with content)
+        minLines: 1,    // Starts with one line
+        keyboardType: TextInputType.multiline, // Allows multiline input from keyboard
       ),
-      
+
     ],
   );
 }

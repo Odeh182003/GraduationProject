@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 class StatisticsPage extends StatefulWidget {
   @override
@@ -19,7 +19,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
   }
 
   Future<void> fetchStats() async {
-    final response = await http.get(Uri.parse("http://192.168.10.3/public_html/FlutterGrad/statistics.php"));
+    final response = await http.get(Uri.parse("${ApiConfig.baseUrl}/statistics.php"));
     if (response.statusCode == 200) {
       setState(() {
         data = json.decode(response.body);
@@ -38,10 +38,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
           elevation: 1,
           title: Row(
             children: [
-              Image.asset(
-                'assets/logo.png',
-                height: 40, // Adjust height as needed
-              ),
+              Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
               const SizedBox(width: 8), // Space between image and text
               const Text(
                 "University Statistics",
@@ -132,11 +133,18 @@ class _StatisticsPageState extends State<StatisticsPage> {
       {"title": "Avg Users/Group", "value": data!["avg_users_per_group"].toString()},
     ];
 
-    return StaggeredGrid.count(
-      crossAxisCount: 4,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      children: stats.map((stat) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2, // 3 columns on larger screens, 2 on smaller
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 1.2, // Adjust aspect ratio for better spacing
+      ),
+      itemCount: stats.length,
+      itemBuilder: (context, index) {
+        final stat = stats[index];
         return Card(
           color: Colors.blue.shade100,
           elevation: 4,
@@ -145,14 +153,14 @@ class _StatisticsPageState extends State<StatisticsPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(stat["title"]!, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(stat["title"]!, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center), // Adjusted font size and added textAlign
                 SizedBox(height: 8),
-                Text(stat["value"]!, style: TextStyle(fontSize: 24, color: Colors.blue.shade900)),
+                Text(stat["value"]!, style: TextStyle(fontSize: 20, color: Colors.blue.shade900), textAlign: TextAlign.center), // Adjusted font size and added textAlign
               ],
             ),
           ),
         );
-      }).toList(),
+      },
     );
   }
 
@@ -228,71 +236,79 @@ class _StatisticsPageState extends State<StatisticsPage> {
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Make column stretch to fill card
           children: [
-            Text("Posts by Faculty", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Posts by Faculty", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center), // Center the title
             SizedBox(
               height: 300,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toInt().toString(),
-                            style: TextStyle(fontSize: 12),
-                          );
-                        },
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
-                        getTitlesWidget: (value, meta) {
-                          final index = value.toInt();
-                          if (index >= 0 && index < facultyPosts.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                facultyPosts[index]["facultyName"].toString(),
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-                                textAlign: TextAlign.center,
-                              ),
-                            );
-                          }
-                          return Text('');
-                        },
-                      ),
-                    ),
-                  ),
-                  gridData: FlGridData(show: true),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border.all(color: Colors.grey, width: 0.5),
-                  ),
-                  barGroups: facultyPosts.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final post = entry.value;
-                    double count = 0;
-                    try {
-                      count = double.tryParse(post["count"].toString()) ?? 0;
-                    } catch (_) {}
-                    return BarChartGroupData(
-                      x: i,
-                      barRods: [
-                        BarChartRodData(
-                          toY: count,
-                          color: Colors.purpleAccent,
-                          width: 16,
+              child: LayoutBuilder( // Use LayoutBuilder to get available width
+                builder: (context, constraints) {
+                  return BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 30, // Reduced reserved size
+                            getTitlesWidget: (value, meta) {
+                              return Text(
+                                value.toInt().toString(),
+                                style: TextStyle(fontSize: 10), // Reduced font size
+                              );
+                            },
+                          ),
                         ),
-                      ],
-                    );
-                  }).toList(),
-                ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 50, // Increased reserved size for rotated labels
+                            getTitlesWidget: (value, meta) {
+                              final index = value.toInt();
+                              if (index >= 0 && index < facultyPosts.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Transform.rotate(
+                                    angle: 0.785398, // 45 degrees in radians
+                                    child: Text(
+                                      facultyPosts[index]["facultyName"].toString(),
+                                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500), // Reduced font size
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                );
+                              }
+                              return Text('');
+                            },
+                          ),
+                        ),
+                      ),
+                      gridData: FlGridData(show: true),
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(color: Colors.grey, width: 0.5),
+                      ),
+                      barGroups: facultyPosts.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final post = entry.value;
+                        double count = 0;
+                        try {
+                          count = double.tryParse(post["count"].toString()) ?? 0;
+                        } catch (_) {}
+                        return BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: count,
+                              color: Colors.purpleAccent,
+                              width: constraints.maxWidth / (facultyPosts.length * 2), // Dynamic width based on available space
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
               ),
             ),
           ],

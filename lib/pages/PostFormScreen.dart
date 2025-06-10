@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -102,7 +103,7 @@ class _PostFormScreenState extends State<PostFormScreen> {
       }
     }
 
-    String apiUrl = "http://192.168.10.3/public_html/FlutterGrad/addpost.php";
+    String apiUrl = "${ApiConfig.baseUrl}/addpost.php";
 
     var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
     request.fields["POSTCREATORID"] = _userId.toString();
@@ -167,10 +168,11 @@ class _PostFormScreenState extends State<PostFormScreen> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40,
-            ),
+            Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8),
             const Text(
               "Posts' Form",

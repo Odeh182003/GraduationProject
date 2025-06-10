@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:bzu_leads/services/user_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -44,9 +45,9 @@ class _Studentcreateposts extends State<Studentcreateposts> {
 
     Uri uri;
     if (kIsWeb) {
-      uri = Uri.parse("http://localhost/public_html/FlutterGrad/getApprovers.php");
+      uri = Uri.parse("${ApiConfig.baseUrl}/getApprovers.php");
     } else {
-      uri = Uri.parse("http://192.168.10.3/public_html/FlutterGrad/getApprovers.php");
+      uri = Uri.parse("${ApiConfig.baseUrl}/getApprovers.php");
     }
     uri = Uri.parse(uri.toString()).replace(queryParameters: {
       "postType": _postType,
@@ -114,7 +115,7 @@ class _Studentcreateposts extends State<Studentcreateposts> {
       return;
     }
 
-    final url = "http://192.168.10.3/public_html/FlutterGrad/studentPost.php";
+    final url = "${ApiConfig.baseUrl}/studentPost.php";
 
     var request = http.MultipartRequest('POST', Uri.parse(url));
     request.fields["POSTCREATORID"] = _userId!;
@@ -187,10 +188,11 @@ class _Studentcreateposts extends State<Studentcreateposts> {
         elevation: 1,
         title: Row(
           children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40, // Adjust height as needed
-            ),
+            Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
             const SizedBox(width: 8), // Space between image and text
             const Text(
               "Student Create Post",

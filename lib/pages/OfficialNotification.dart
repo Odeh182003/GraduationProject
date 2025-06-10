@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
-import 'package:shimmer/shimmer.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OfficialNotification extends StatefulWidget {
   const OfficialNotification({super.key});
@@ -42,7 +43,7 @@ class _OfficialNotificationState extends State<OfficialNotification> {
 
   Future<void> _fetchPendingPosts(String userId) async {
     final response = await http.get(
-      Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_pending_posts.php?reviewerId=$userId'),
+      Uri.parse('${ApiConfig.baseUrl}/get_pending_posts.php?reviewerId=$userId'),
     );
 
     if (response.statusCode == 200) {
@@ -66,111 +67,7 @@ class _OfficialNotificationState extends State<OfficialNotification> {
     }
   }
 
-  Future<void> _handlePostAction(String postId, String postType, String action) async {
-    final url = 'http://192.168.10.3/public_html/FlutterGrad/$action.php';
-    if (userId == null) return;
-
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'postId': postId,
-          'approverId': userId,
-          'postType': postType,
-        }),
-      );
-
-      final result = jsonDecode(response.body);
-      if (response.statusCode == 200 && result['success']) {
-        print('Post $action successful.');
-        
-        await _fetchPendingPosts(userId!);
-      } else {
-        print('Post $action failed: ${result['error']}');
-      }
-    } catch (e) {
-      print('Error: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.green,
-        elevation: 1,
-        title: Row(
-          children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40, // Adjust height as needed
-            ),
-            const SizedBox(width: 8), // Space between image and text
-            const Text(
-              "Officials' Notifications",
-              style: TextStyle(
-                color: Colors.green, // Ensure text color matches your theme
-              ),
-            ),
-          ],
-        ),
-        
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : posts.isEmpty
-              ? const Center(child: Text("No new Notification", style: TextStyle(fontSize: 18, color: Colors.grey)))
-              : ListView.builder(
-                  itemCount: posts.length,
-                  itemBuilder: (context, index) {
-                    final post = posts[index];
-                    return NotificationCard(
-                      title: post['posttitle'] ?? '',
-                      content: post['CONTENT'] ?? '',
-                      creatorID: post['POSTCREATORID']?.toString() ?? '',
-                      postID: post['POSTID']?.toString() ?? '',
-                      postType: post['POSTTYPE']?.toString() ?? '',
-                      mediaList: post['media'] is List ? List<String>.from(post['media']) : [],
-                      onApprove: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'approve'),
-                      onReject: () => _handlePostAction(post['POSTID'].toString(), post['POSTTYPE'], 'reject'),
-                    );
-                  },
-                ),
-    );
-  }
-}
-
-class NotificationCard extends StatelessWidget {
-  final String title;
-  final String content;
-  final String creatorID;
-  final String postID;
-  final String postType;
-  final List<String> mediaList; // <-- changed from mediaUrl
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
-
-  const NotificationCard({
-    super.key,
-    required this.title,
-    required this.content,
-    required this.creatorID,
-    required this.postID,
-    required this.postType,
-    required this.mediaList,
-    required this.onApprove,
-    required this.onReject,
-  });
-
-  bool _isImage(String path) {
-    final ext = path.toLowerCase();
-    return ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png') || ext.endsWith('.gif') || ext.endsWith('.bmp') || ext.endsWith('.webp');
-  }
-
-  Future<void> _downloadAndOpenFile(BuildContext context, String url, String fileName) async {
+  Future<void> _openAttachment(String url, String fileName) async {
     try {
       Directory? downloadsDir;
       try {
@@ -209,14 +106,125 @@ class NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    int currentIndex = 0;
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.green,
+        elevation: 1,
+        title: Row(
+          children: [
+            Image.network(
+              ApiConfig.systemLogoUrl,
+              height: 40,
+              errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Officials' Notifications",
+              style: TextStyle(
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : posts.isEmpty
+              ? const Center(child: Text("No new Notification", style: TextStyle(fontSize: 18, color: Colors.grey)))
+              : ListView.builder(
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return NotificationCard(
+                      title: post['posttitle'] ?? '',
+                      content: post['CONTENT'] ?? '',
+                      creatorID: post['POSTCREATORID']?.toString() ?? '',
+                      username: post['username'] ?? 'Unknown User',
+                      postID: post['POSTID']?.toString() ?? '',
+                      postType: post['POSTTYPE']?.toString() ?? '',
+                      mediaList: post['media'] is List ? List<String>.from(post['media']) : [],
+                      onApprove: () async => await _handlePostAction(post['POSTID'], post['POSTTYPE'], 'approve'),
+                      onReject: () async => await _handlePostAction(post['POSTID'], post['POSTTYPE'], 'reject'),
+                      onOpenAttachment: _openAttachment,
+                    );
+                  },
+                ),
+    );
+  }
+
+  Future<void> _handlePostAction(dynamic postId, dynamic postType, String action) async {
+    final url = '${ApiConfig.baseUrl}/$action.php';
+    if (userId == null) return;
+
+    final String safePostId = postId?.toString() ?? '';
+    final String safePostType = postType?.toString() ?? '';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'postId': safePostId,
+          'approverId': userId,
+          'postType': safePostType,
+        }),
+      );
+
+      final result = jsonDecode(response.body);
+      if (response.statusCode == 200 && result['success']) {
+        print('Post $action successful.');
+        await _fetchPendingPosts(userId!);
+      } else {
+        print('Post $action failed: ${result['error']}');
+      }
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+}
+
+class NotificationCard extends StatelessWidget {
+  final String title;
+  final String content;
+  final String creatorID;
+  final String username;
+  final String postID;
+  final String postType;
+  final List<String> mediaList;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+  final Future<void> Function(String url, String fileName) onOpenAttachment;
+
+  const NotificationCard({
+    super.key,
+    required this.title,
+    required this.content,
+    required this.creatorID,
+    required this.username,
+    required this.postID,
+    required this.postType,
+    required this.mediaList,
+    required this.onApprove,
+    required this.onReject,
+    required this.onOpenAttachment,
+  });
+
+  bool _isImage(String path) {
+    final ext = path.toLowerCase();
+    return ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png') || ext.endsWith('.gif') || ext.endsWith('.bmp') || ext.endsWith('.webp');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final imageUrls = mediaList
         .where((m) => _isImage(m))
-        .map((m) => "http://192.168.10.3/public_html/FlutterGrad/$m")
+        .map((m) => "${ApiConfig.baseUrl}/$m")
         .toList();
     final fileUrls = mediaList
         .where((m) => !_isImage(m))
-        .map((m) => "http://192.168.10.3/public_html/FlutterGrad/$m")
+        .map((m) => "${ApiConfig.baseUrl}/$m")
         .toList();
 
     return AnimatedContainer(
@@ -250,11 +258,10 @@ class NotificationCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    creatorID,
+                    "$username: $creatorID",
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
-               // Icon(postType == 'private' ? Icons.lock : Icons.public, color: Colors.green),
               ],
             ),
             const SizedBox(height: 12),
@@ -271,70 +278,23 @@ class NotificationCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (imageUrls.isNotEmpty)
-              StatefulBuilder(
-                builder: (context, setState) {
-                  return Column(
-                    children: [
-                      AspectRatio(
-                        aspectRatio: 4 / 3,
-                        child: PageView.builder(
-                          itemCount: imageUrls.length,
-                          onPageChanged: (index) {
-                            setState(() {
-                              currentIndex = index;
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            return ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.network(
-                                imageUrls[index],
-                                fit: BoxFit.contain,
-                                width: double.infinity,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Shimmer.fromColors(
-                                    baseColor: Colors.grey[300]!,
-                                    highlightColor: Colors.grey[100]!,
-                                    child: Container(
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const SizedBox();
-                                },
-                              ),
-                            );
-                          },
-                        ),
+              Column(
+                children: imageUrls.map((url) {
+                  return GestureDetector(
+                    onTap: () => onOpenAttachment(url, url.split('/').last),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const SizedBox();
+                        },
                       ),
-                      if (imageUrls.length > 1)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              imageUrls.length,
-                              (index) => Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: currentIndex == index ? Colors.green : Colors.grey,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   );
-                },
+                }).toList(),
               ),
             if (fileUrls.isNotEmpty)
               Padding(
@@ -346,10 +306,8 @@ class NotificationCard extends StatelessWidget {
                     return ListTile(
                       leading: Icon(Icons.attach_file, color: Colors.green),
                       title: Text(filename, style: TextStyle(fontSize: 14)),
-                      trailing: Icon(Icons.download, color: Colors.green),
-                      onTap: () async {
-                        await _downloadAndOpenFile(context, url, filename);
-                      },
+                      trailing: Icon(Icons.visibility, color: Colors.green),
+                      onTap: () => onOpenAttachment(url, filename),
                     );
                   }).toList(),
                 ),

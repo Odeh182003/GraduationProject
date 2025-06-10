@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:bzu_leads/services/registration.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,7 +45,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   Future<void> _fetchFaculties() async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_faculties.php'));
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/get_faculties.php'));
       if (response.statusCode == 200) {
         setState(() {
           _faculties = List<Map<String, dynamic>>.from(json.decode(response.body).map((faculty) => {
@@ -64,7 +65,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   Future<void> _fetchDepartments(int facultyID) async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.10.3/public_html/FlutterGrad/get_departments.php?facultyID=$facultyID'));
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/get_departments.php?facultyID=$facultyID'));
       if (response.statusCode == 200) {
         setState(() {
           _departments = List<Map<String, dynamic>>.from(json.decode(response.body).map((department) => {
@@ -95,7 +96,25 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registration'),
+  backgroundColor: Colors.white,
+  foregroundColor: Colors.green,
+  elevation: 1,
+  title: Row(
+    children: [
+      Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+      ),
+      const SizedBox(width: 8), // Space between image and text
+      const Text(
+        "Rejestration",
+        style: TextStyle(
+          color: Colors.green, // Ensure text color matches your theme
+        ),
+      ),
+    ],
+  ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

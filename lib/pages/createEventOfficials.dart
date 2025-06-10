@@ -1,5 +1,6 @@
 import 'package:bzu_leads/pages/profile_page.dart';
 import 'package:bzu_leads/pages/settingsPage.dart';
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -86,7 +87,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
     try {
       var response = await http.post(
-        Uri.parse('http://192.168.10.3/public_html/FlutterGrad/officials_new_event.php'), 
+        Uri.parse('${ApiConfig.baseUrl}/officials_new_event.php'), 
         headers: {'Content-Type': 'application/json'},
         body: json.encode(data),
       );
@@ -152,9 +153,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
   elevation: 1,
   title: Row(
     children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
+      Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
       const SizedBox(width: 8), // Space between image and text
       const Text(

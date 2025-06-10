@@ -1,3 +1,4 @@
+import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -22,7 +23,7 @@ class _Editactivity extends State<Editactivity> {
   }
 
   Future<void> fetchActivities() async {
-    final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/fetch_activities.php');
+    final url = Uri.parse('${ApiConfig.baseUrl}/fetch_activities.php');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -42,7 +43,7 @@ class _Editactivity extends State<Editactivity> {
     }
   }
 Future<void> updateActivityStatus(String activityID, String newStatus) async {
-  final url = Uri.parse('http://192.168.10.3/public_html/FlutterGrad/update_activity_status.php');
+  final url = Uri.parse('${ApiConfig.baseUrl}/update_activity_status.php');
   try {
     final response = await http.post(
       url,
@@ -77,9 +78,10 @@ Future<void> updateActivityStatus(String activityID, String newStatus) async {
   elevation: 1,
   title: Row(
     children: [
-      Image.asset(
-        'assets/logo.png',
-        height: 40, // Adjust height as needed
+      Image.network(
+        ApiConfig.systemLogoUrl,
+        height: 40,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
       const SizedBox(width: 8), // Space between image and text
       const Text(
