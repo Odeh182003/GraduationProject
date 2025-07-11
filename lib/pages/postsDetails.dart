@@ -1,11 +1,16 @@
-import 'package:bzu_leads/pages/profile_page.dart';
-import 'package:bzu_leads/pages/settingsPage.dart';
+//import 'package:bzu_leads/pages/profile_page.dart';
+//import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:bzu_leads/services/comments.dart';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
+
 class Postsdetails extends StatefulWidget {
   final int postID;
 
@@ -16,6 +21,9 @@ class Postsdetails extends StatefulWidget {
 }
 
 class _PostsDetailsPageState extends State<Postsdetails> {
+  PlatformFile? _selectedCommentFile;
+TextEditingController commentController = TextEditingController();
+
   Map<String, dynamic>? post;
   late Future<List<Comment>> _commentsFuture;
 
@@ -92,34 +100,39 @@ class _PostsDetailsPageState extends State<Postsdetails> {
     }
   }
 
-  Future<void> submitComment({
-    required int postID,
-    required int commentCreatorID,
-    required String commentText,
-  }) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}/insertComment.php');
-    final response = await http.post(
-      url,
-      body: {
-        'postID': postID.toString(),
-        'commentCreatorID': commentCreatorID.toString(),
-        'commentText': commentText,
-      },
-    );
-    final result = json.decode(response.body);
-    if (response.statusCode == 200 && result['success'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Comment published!")),
-      );
-      setState(() {
-        _commentsFuture = fetchComments(widget.postID);
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to add comment: ${result['error']}")),
-      );
-    }
+Future<void> submitComment() async {
+  final prefs = await SharedPreferences.getInstance();
+  final userID = prefs.getString("universityID");
+
+  var uri = Uri.parse("${ApiConfig.baseUrl}/insertComment.php");
+
+  var request = http.MultipartRequest('POST', uri);
+  request.fields['postID'] = widget.postID.toString();
+  request.fields['commentCreatorID'] = userID!;
+  request.fields['commentText'] = commentController.text;
+
+  if (_selectedCommentFile != null && _selectedCommentFile!.path != null) {
+    request.files.add(await http.MultipartFile.fromPath(
+      'attachment',
+      _selectedCommentFile!.path!,
+    ));
   }
+
+  var response = await request.send();
+  var responseBody = await response.stream.bytesToString();
+
+  if (response.statusCode == 200) {
+    print("Comment submitted: $responseBody");
+    setState(() {
+      commentController.clear();
+      _selectedCommentFile = null;
+      _commentsFuture = fetchComments(widget.postID);
+    });
+  } else {
+    print("Submission failed: $responseBody");
+  }
+}
+
   Future<List<Comment>> fetchComments(int postID) async {
     final url = Uri.parse("${ApiConfig.baseUrl}/getComments.php?postID=$postID");
     final response = await http.get(url);
@@ -145,6 +158,44 @@ class _PostsDetailsPageState extends State<Postsdetails> {
 
   @override
   Widget build(BuildContext context) {
+    // Helper for file download/open
+    Future<void> downloadFile(String url, String fileName) async {
+      try {
+        Directory? downloadsDir;
+        try {
+          downloadsDir = await getDownloadsDirectory();
+        } catch (e) {
+          downloadsDir = await getApplicationDocumentsDirectory();
+        }
+        if (downloadsDir == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Cannot access downloads directory.")),
+          );
+          return;
+        }
+        final savePath = "${downloadsDir.path}/$fileName";
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200) {
+          final file = File(savePath);
+          await file.writeAsBytes(response.bodyBytes);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Downloaded to $savePath")),
+          );
+          try {
+            await OpenFile.open(savePath);
+          } catch (_) {}
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to download file (status ${response.statusCode}).")),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error downloading file: $e")),
+        );
+      }
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
@@ -167,28 +218,7 @@ class _PostsDetailsPageState extends State<Postsdetails> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => settingsPage()),
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.person),
-            onPressed: () async {
-              SharedPreferences prefs = await SharedPreferences.getInstance();
-              String? userID = prefs.getString("universityID");
-              if (userID != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => ProfilePage()),
-                );
-              }
-            },
-          ),
-        ],
+       
       ),
       body: post == null
           ? Center(child: CircularProgressIndicator())
@@ -198,21 +228,84 @@ class _PostsDetailsPageState extends State<Postsdetails> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: (post!["media"] != null && post!["media"] is List && (post!["media"] as List).isNotEmpty)
-                            ? _buildMediaCarousel(post!["media"])
-                            : Container(
+                    // --- Attachments section ---
+                    if (post != null && post!["media"] != null && post!["media"] is List && (post!["media"] as List).isNotEmpty)
+                      ...() {
+                        final List<dynamic> mediaList = post!["media"];
+                        final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+                        final List<String> images = [];
+                        final List<String> files = [];
+                        for (var item in mediaList) {
+                          if (item is String) {
+                            final ext = item.split('.').last.toLowerCase();
+                            if (imageExtensions.contains(ext)) {
+                              images.add(item);
+                            } else {
+                              files.add(item);
+                            }
+                          }
+                        }
+                        return [
+                          if (images.isNotEmpty)
+                            Center(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: _buildMediaCarousel(images),
+                              ),
+                            )
+                          else
+                            Center(
+                              child: Container(
                                 height: 250,
                                 color: Colors.grey[300],
                                 child: Center(
                                   child: Icon(Icons.image, size: 100, color: Colors.grey[600]),
                                 ),
                               ),
+                            ),
+                          if (files.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12.0, bottom: 12.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("Attachments:", style: TextStyle(fontWeight: FontWeight.w600)),
+                                  ...files.map((file) {
+                                    final fileName = file.split('/').last;
+                                    final fileUrl = "${ApiConfig.baseUrl}/$file";
+                                    IconData icon;
+                                    final ext = fileName.split('.').last.toLowerCase();
+                                    if (ext == 'pdf') {
+                                      icon = Icons.picture_as_pdf;
+                                    } else if (ext == 'doc' || ext == 'docx') {
+                                      icon = Icons.description;
+                                    } else {
+                                      icon = Icons.attach_file;
+                                    }
+                                    return ListTile(
+                                      leading: Icon(icon, color: Colors.green),
+                                      title: Text(fileName, overflow: TextOverflow.ellipsis),
+                                      onTap: () async {
+                                        await downloadFile(fileUrl, fileName);
+                                      },
+                                      trailing: Icon(Icons.download, color: Colors.green),
+                                    );
+                                  }).toList(),
+                                ],
+                              ),
+                            ),
+                        ];
+                      }(),
+                    if (post == null || post!["media"] == null || (post!["media"] is List && (post!["media"] as List).isEmpty))
+                      Center(
+                        child: Container(
+                          height: 250,
+                          color: Colors.grey[300],
+                          child: Center(
+                            child: Icon(Icons.image, size: 100, color: Colors.grey[600]),
+                          ),
+                        ),
                       ),
-                    ),
-
                     const SizedBox(height: 20),
                     Directionality(
                       textDirection: _isArabic(post!["posttitle"]) ? TextDirection.rtl : TextDirection.ltr,
@@ -266,37 +359,84 @@ class _PostsDetailsPageState extends State<Postsdetails> {
                             return;
                           }
 
-                          String commentText = '';
-
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text("Add Comment"),
-                              content: TextField(
-                                maxLines: 3,
-                                onChanged: (value) => commentText = value,
-                                decoration: InputDecoration(
-                                    hintText: "Type your comment...",
-                                    border: OutlineInputBorder()),
+                          //String commentText = '';
+showDialog(
+  context: context,
+  builder: (context) {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: const Text("Add Comment"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: commentController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: "Comment"),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    FilePickerResult? result = await FilePicker.platform.pickFiles();
+                    if (result != null) {
+                      setState(() {
+                        _selectedCommentFile = result.files.first;
+                      });
+                    }
+                  },
+                  child: Text(_selectedCommentFile == null
+                      ? "Attach File"
+                      : "Attached: ${_selectedCommentFile!.name}"),
+                ),
+                if (_selectedCommentFile != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Column(
+                      children: [
+                        Text(
+                          "Selected Attachment:",
+                          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.green[800]),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(Icons.attach_file, color: Colors.green),
+                            Expanded(
+                              child: Text(
+                                _selectedCommentFile!.name,
+                                style: const TextStyle(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              actions: [
-                                TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text("Cancel")),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    await submitComment(
-                                      postID: widget.postID,
-                                      commentCreatorID: int.parse(userID),
-                                      commentText: commentText,
-                                    );
-                                  },
-                                  child: Text("Publish"),
-                                ),
-                              ],
                             ),
-                          );
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                submitComment();
+              },
+              child: const Text("Submit"),
+            ),
+          ],
+        );
+      },
+    );
+  },
+);
+
                         },
                         icon: Icon(
                           Icons.comment,
@@ -338,19 +478,46 @@ class _PostsDetailsPageState extends State<Postsdetails> {
                           itemBuilder: (context, index) {
                             final comment = comments[index];
                             return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 6),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              child: ListTile(
-                                title: Directionality(
-                                  textDirection: _isArabic(comment.text) ? TextDirection.rtl : TextDirection.ltr,
-                                  child: Text(comment.text),
-                                ),
-                                subtitle: Directionality(
-                                  textDirection: _isArabic(comment.username) ? TextDirection.rtl : TextDirection.ltr,
-                                  child: Text("By  ${comment.username}, ${comment.creatorId} at ${comment.timestamp}"),
-                                ),
-                              ),
-                            );
+  margin: const EdgeInsets.symmetric(vertical: 6),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  child: Padding(
+    padding: const EdgeInsets.all(10.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Directionality(
+          textDirection: _isArabic(comment.text) ? TextDirection.rtl : TextDirection.ltr,
+          child: Text(comment.text),
+        ),
+        const SizedBox(height: 4),
+        Directionality(
+          textDirection: _isArabic(comment.username) ? TextDirection.rtl : TextDirection.ltr,
+          child: Text(
+            "By ${comment.username}, ${comment.creatorId} at ${comment.timestamp}",
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ),
+        if (comment.attachment != null && comment.attachment!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: TextButton.icon(
+              onPressed: () async {
+                final fileName = comment.attachment!.split("/").last;
+                final fileUrl = "${ApiConfig.baseUrl}/${comment.attachment}";
+                await downloadFile(fileUrl, fileName);
+              },
+              icon: const Icon(Icons.attach_file, color: Colors.green),
+              label: Text(
+                "View Attachment",
+                style: TextStyle(color: Colors.green[800]),
+              ),
+            ),
+          ),
+      ],
+    ),
+  ),
+);
+
                           },
                         );
                       },

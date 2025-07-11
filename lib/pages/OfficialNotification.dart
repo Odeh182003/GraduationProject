@@ -185,7 +185,7 @@ class _OfficialNotificationState extends State<OfficialNotification> {
   }
 }
 
-class NotificationCard extends StatelessWidget {
+class NotificationCard extends StatefulWidget {
   final String title;
   final String content;
   final String creatorID;
@@ -211,18 +211,30 @@ class NotificationCard extends StatelessWidget {
     required this.onOpenAttachment,
   });
 
+  @override
+  State<NotificationCard> createState() => _NotificationCardState();
+}
+
+class _NotificationCardState extends State<NotificationCard> {
+  int _currentImageIndex = 0;
+
   bool _isImage(String path) {
     final ext = path.toLowerCase();
-    return ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png') || ext.endsWith('.gif') || ext.endsWith('.bmp') || ext.endsWith('.webp');
+    return ext.endsWith('.jpg') ||
+        ext.endsWith('.jpeg') ||
+        ext.endsWith('.png') ||
+        ext.endsWith('.gif') ||
+        ext.endsWith('.bmp') ||
+        ext.endsWith('.webp');
   }
 
   @override
   Widget build(BuildContext context) {
-    final imageUrls = mediaList
+    final imageUrls = widget.mediaList
         .where((m) => _isImage(m))
         .map((m) => "${ApiConfig.baseUrl}/$m")
         .toList();
-    final fileUrls = mediaList
+    final fileUrls = widget.mediaList
         .where((m) => !_isImage(m))
         .map((m) => "${ApiConfig.baseUrl}/$m")
         .toList();
@@ -258,7 +270,7 @@ class NotificationCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    "$username: $creatorID",
+                    "${widget.username}: ${widget.creatorID}",
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -266,35 +278,70 @@ class NotificationCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              title,
+              widget.title,
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              content,
+              widget.content,
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 14, height: 1.4),
             ),
             const SizedBox(height: 12),
             if (imageUrls.isNotEmpty)
-              Column(
-                children: imageUrls.map((url) {
-                  return GestureDetector(
-                    onTap: () => onOpenAttachment(url, url.split('/').last),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        url,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const SizedBox();
-                        },
-                      ),
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.width > 600 ? 250 : 200,
+                    width: double.infinity,
+                    child: PageView.builder(
+                      itemCount: imageUrls.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentImageIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, idx) {
+                        final url = imageUrls[idx];
+                        return Image.network(
+                          url,
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          height: MediaQuery.of(context).size.width > 600 ? 250 : 200,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[300],
+                              height: MediaQuery.of(context).size.width > 600 ? 250 : 200,
+                              child: Icon(Icons.broken_image, size: 100, color: Colors.grey[600]),
+                            );
+                          },
+                        );
+                      },
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
+              ),
+            if (imageUrls.length > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(imageUrls.length, (idx) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _currentImageIndex == idx
+                            ? Colors.green
+                            : Colors.grey[300],
+                      ),
+                    );
+                  }),
+                ),
               ),
             if (fileUrls.isNotEmpty)
               Padding(
@@ -307,7 +354,7 @@ class NotificationCard extends StatelessWidget {
                       leading: Icon(Icons.attach_file, color: Colors.green),
                       title: Text(filename, style: TextStyle(fontSize: 14)),
                       trailing: Icon(Icons.visibility, color: Colors.green),
-                      onTap: () => onOpenAttachment(url, filename),
+                      onTap: () => widget.onOpenAttachment(url, filename),
                     );
                   }).toList(),
                 ),
@@ -317,13 +364,13 @@ class NotificationCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 ElevatedButton(
-                  onPressed: onApprove,
+                  onPressed: widget.onApprove,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green[200]),
                   child: const Text("Approve", style: TextStyle(color: Colors.green)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: onReject,
+                  onPressed: widget.onReject,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
                   child: const Text("Reject", style: TextStyle(color: Colors.white)),
                 ),

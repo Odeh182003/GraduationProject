@@ -20,17 +20,52 @@ class _LoginState extends State<Login> {
   final TextEditingController _password = TextEditingController();
   bool isLoading = false;
 
-  // Top-level function for compute to decode JSON
   static Map<String, dynamic> parseJson(String responseBody) {
     return jsonDecode(responseBody) as Map<String, dynamic>;
   }
 
-  // Function to decode JSON in a background thread
   Future<Map<String, dynamic>> _decodeJson(String responseBody) async {
     return await compute(parseJson, responseBody);
   }
 
+  bool isStrongPassword(String password) {
+    final regex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$');
+    return regex.hasMatch(password);
+  }
+
   Future<void> login() async {
+    final universityID = _uniID.text.trim();
+    final password = _password.text;
+
+    // Input Validation
+    if (universityID.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields.")),
+      );
+      return;
+    }
+
+    if (!RegExp(r'^\d+$').hasMatch(universityID)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("University ID must be numeric.")),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password must be at least 6 characters.")),
+      );
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password must include uppercase, lowercase, digit, and special character.")),
+      );
+      return;
+    }
+
     setState(() => isLoading = true);
     Uri url;
     if (kIsWeb) {
@@ -40,7 +75,6 @@ class _LoginState extends State<Login> {
     }
 
     try {
-      // Retry mechanism with exponential backoff
       const int maxRetries = 3;
       int retryCount = 0;
       http.Response response;
@@ -51,24 +85,23 @@ class _LoginState extends State<Login> {
             url,
             headers: {
               "Content-Type": "application/json",
-              "Connection": "keep-alive", // Use persistent connection
+              "Connection": "keep-alive",
             },
             body: jsonEncode({
-              "universityID": _uniID.text.trim(), // Send universityID as a string
-              "password": _password.text,
+              "universityID": universityID,
+              "password": password,
             }),
           );
-          break; // Exit loop if request is successful
+          break;
         } catch (e) {
           retryCount++;
           if (retryCount >= maxRetries) {
-            throw e; // Re-throw the exception after max retries
+            throw e;
           }
-          await Future.delayed(Duration(milliseconds: 500 * retryCount)); // Exponential backoff
+          await Future.delayed(Duration(milliseconds: 500 * retryCount));
         }
       }
 
-      // Decode JSON in a background thread
       var data = await _decodeJson(response.body);
       setState(() => isLoading = false);
 
@@ -76,19 +109,17 @@ class _LoginState extends State<Login> {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("username", data['username']);
         await prefs.setString("role", jsonEncode(data['roles']));
-        await prefs.setString("universityID", _uniID.text.trim());
-        await prefs.setString("password", _password.text);
+        await prefs.setString("universityID", universityID);
+        await prefs.setString("password", password);
         await prefs.setString("defaultRole", data['defaultRole']);
         await prefs.setString("facultyID", data['facultyID'].toString());
-        print("Faculty ID: ${data['facultyID']}");
-        // Store section IDs for student roles
+
         if (data['studentData'] != null) {
           List<int> sectionIDs = List<int>.from(data['studentData']['sectionIDs'] ?? []);
-          List<String> sectionIDsAsStrings = sectionIDs.map((id) => id.toString()).toList(); // Convert to strings
+          List<String> sectionIDsAsStrings = sectionIDs.map((id) => id.toString()).toList();
           await prefs.setStringList("sectionIDs", sectionIDsAsStrings);
         }
 
-        // Store club data for official roles
         if (data['officialData'] != null) {
           List<Map<String, dynamic>> officialClubs = List<Map<String, dynamic>>.from(
             data['officialData']['clubs'].map((club) => {
@@ -100,8 +131,6 @@ class _LoginState extends State<Login> {
         }
 
         String defaultRole = data['defaultRole'];
-
-        // Navigate based on role
         if (defaultRole == "official" || defaultRole == "universityAdministrator") {
           Navigator.pushReplacementNamed(context, "/official_dashboard");
         } else if (defaultRole == "student") {
@@ -142,37 +171,20 @@ class _LoginState extends State<Login> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background Image
-         /* Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/Blog-Olive-Tree-1.png"),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),*/
-          
-          // Semi-transparent overlay
           Container(color: Colors.black.withOpacity(0.3)),
-
-          // Top-left logo
           Positioned(
             top: 40,
             left: 40,
             child: Image.network(
-        ApiConfig.systemLogoUrl,
-        height: 140,
-        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
-      
+              ApiConfig.systemLogoUrl,
+              height: 140,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
             ),
           ),
-
-          // Main content
           Center(
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Login Form Container
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 30),
                     padding: const EdgeInsets.all(25),

@@ -76,134 +76,197 @@ class _Participators extends State<Participators> {
         List participators = participatorsData['participators'];
         List requests = requestsData['requests'];
 
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: Text('Participators'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+       showDialog(
+  context: context,
+  builder: (_) => AlertDialog(
+    title: Text('Participators'),
+    content: SizedBox(
+      width: double.maxFinite,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (requests.isNotEmpty) ...[
+              Text(
+                "Pending Requests",
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+              ),
+              SizedBox(height: 8),
+             ListView.separated(
+  shrinkWrap: true,
+  physics: NeverScrollableScrollPhysics(),
+  itemCount: requests.length,
+  separatorBuilder: (context, index) => Divider(height: 16, color: Colors.grey[300]),
+ itemBuilder: (context, index) {
+  final r = requests[index];
+  return Container(
+    padding: EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.orange.shade50,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          backgroundColor: Colors.orange[100],
+          child: Icon(Icons.hourglass_top, color: Colors.orange[800]),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                r['username'] ?? 'Unknown',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                overflow: TextOverflow.ellipsis, // ensures it stays one line
+              ),
+              SizedBox(height: 4),
+              Text(
+                'User ID: ${r['userID']}',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (requests.isNotEmpty) ...[
-                      Text("Pending Requests", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        itemCount: requests.length,
-                        separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[300]),
-                        itemBuilder: (context, index) {
-                          final r = requests[index];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.orange[100],
-                              child: Icon(Icons.hourglass_top, color: Colors.orange[800]),
+                    IconButton(
+                      icon: Icon(Icons.check, color: Colors.green),
+                      tooltip: "Accept",
+                      onPressed: () async {
+                        await handleRequest(r['requestID'], 'accept');
+                        Navigator.pop(context);
+                        showParticipatorsDialog(activityID);
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: Colors.red),
+                      tooltip: "Reject",
+                      onPressed: () {
+                        final reasonController = TextEditingController();
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text("Reject Request"),
+                            content: TextField(
+                              controller: reasonController,
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                hintText: "Enter rejection reason",
+                                border: OutlineInputBorder(),
+                              ),
                             ),
-                            title: Text(r['username'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('User ID: ${r['userID']}'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.check, color: Colors.green),
-                                  tooltip: "Accept",
-                                  onPressed: () async {
-                                    await handleRequest(r['requestID'], 'accept');
-                                    Navigator.pop(context);
-                                    showParticipatorsDialog(activityID);
-                                  },
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.close, color: Colors.red),
-                                  tooltip: "Reject",
-                                  onPressed: () {
-                                    // Show a dialog to get the rejection reason
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) {
-                                        final reasonController = TextEditingController();
-                                        return AlertDialog(
-                                          title: Text("Reject Request"),
-                                          content: TextField(
-                                            controller: reasonController,
-                                            decoration: InputDecoration(hintText: "Enter rejection reason"),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              child: Text("Cancel"),
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                            ),
-                                            ElevatedButton(
-                                              onPressed: () async {
-                                                final reason = reasonController.text.trim();
-                                                if (reason.isNotEmpty) {
-                                                  await handleRequest(int.parse(r['requestID'].toString()), 'reject', reason: reason);
-                                                  Navigator.of(context).pop(); // Close the dialog
-                                                  Navigator.pop(context); // Close the main dialog
-                                                  showParticipatorsDialog(activityID); // Refresh
-                                                } else {
-                                                  // Show an error if the reason is empty
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(content: Text("Rejection reason cannot be empty.")),
-                                                  );
-                                                }
-                                              },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.green,
-                                              ),
-                                              child: Text("Reject", style: TextStyle(color: Colors.white, )),
-                                            ),
-                                          ],
-                                        );
-                                      },
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: Text("Cancel"),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                onPressed: () async {
+                                  final reason = reasonController.text.trim();
+                                  if (reason.isNotEmpty) {
+                                    await handleRequest(
+                                      int.parse(r['requestID'].toString()),
+                                      'reject',
+                                      reason: reason,
                                     );
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      Divider(),
-                    ],
-                    Text("Accepted Participators", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                    participators.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Text("No participators yet."),
-                          )
-                        : ListView.separated(
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemCount: participators.length,
-                            separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[300]),
-                            itemBuilder: (context, index) {
-                              final p = participators[index];
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.green[100],
-                                  child: Icon(Icons.person, color: Colors.green[800]),
-                                ),
-                                title: Text(p['username'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text('User ID: ${p['userID']}'),
-                              );
-                            },
+                                    Navigator.of(context).pop(); // close reason dialog
+                                    Navigator.pop(context); // close main dialog
+                                    showParticipatorsDialog(activityID); // refresh
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("Rejection reason cannot be empty.")),
+                                    );
+                                  }
+                                },
+                                child: Text("Reject", style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
                           ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text("Close"),
-              )
             ],
           ),
-        );
+        ),
+      ],
+    ),
+  );
+},
+),
+              Divider(height: 24),
+            ],
+            SizedBox(height: 8),
+            Text(
+              "Accepted Participators",
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+            ),
+            SizedBox(height: 8),
+            participators.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text("No participators yet."),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    itemCount: participators.length,
+                    separatorBuilder: (context, index) => Divider(height: 16, color: Colors.grey[300]),
+                    itemBuilder: (context, index) {
+                      final p = participators[index];
+                      return Container(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: Colors.green[100],
+                              child: Icon(Icons.person, color: Colors.green[800]),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p['username'] ?? 'Unknown',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'User ID: ${p['userID']}',
+                                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: Text("Close"),
+      ),
+    ],
+  ),
+);
+
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error loading participators or requests.")),
@@ -388,11 +451,11 @@ class _Participators extends State<Participators> {
                                         Align(
                                           alignment: Alignment.centerRight,
                                           child: ElevatedButton(
-                                            onPressed: isHost
+                                            onPressed: (isHost && activity['status'].toString().toLowerCase() != 'cancelled')
                                                 ? () {
                                                     showParticipatorsDialog(activity['activityID']);
                                                   }
-                                                : null, // Disabled for non-hosts
+                                                : null, // Disabled for non-hosts or if cancelled
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: Colors.green,
                                               foregroundColor: Colors.white,

@@ -19,79 +19,138 @@ class settingsPage extends StatelessWidget {
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
 
+    bool isStrongPassword(String password) {
+      // At least one uppercase, one lowercase, one digit, one special char, min 8 chars
+      final regex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$');
+      return regex.hasMatch(password);
+    }
+
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text("Change Password"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: oldPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: "Old Password"),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: SingleChildScrollView( // <-- Fix overflow on keyboard open
+            padding: EdgeInsets.zero,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
               ),
-              TextField(
-                controller: newPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: "New Password"),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Change Password",
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: oldPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: "Old Password",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: newPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: "New Password",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: "Confirm New Password",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("Cancel"),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                        onPressed: () async {
+                          final oldPass = oldPasswordController.text.trim();
+                          final newPass = newPasswordController.text.trim();
+                          final confirmPass = confirmPasswordController.text.trim();
+
+                          if (newPass.isEmpty || oldPass.isEmpty || confirmPass.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("All fields are required.")),
+                            );
+                            return;
+                          }
+                          if (!isStrongPassword(newPass)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Password must be at least 8 characters and include uppercase, lowercase, number, and special character.",
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          if (newPass != confirmPass) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Passwords do not match.")),
+                            );
+                            return;
+                          }
+
+                          SharedPreferences prefs = await SharedPreferences.getInstance();
+                          String? universityID = prefs.getString("universityID");
+                          if (universityID == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("User not found.")),
+                            );
+                            return;
+                          }
+
+                          final response = await changePasswordRequest(
+                            universityID,
+                            oldPass, 
+                            newPass, 
+                          );
+
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(response)),
+                          );
+                        },
+                        child: const Text("Change"),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              TextField(
-                controller: confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: "Confirm New Password"),
-              ),
-            ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final oldPass = oldPasswordController.text.trim();
-                final newPass = newPasswordController.text.trim();
-                final confirmPass = confirmPasswordController.text.trim();
-
-                if (newPass.isEmpty || oldPass.isEmpty || confirmPass.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("All fields are required.")),
-                  );
-                  return;
-                }
-                if (newPass != confirmPass) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Passwords do not match.")),
-                  );
-                  return;
-                }
-
-                SharedPreferences prefs = await SharedPreferences.getInstance();
-                String? universityID = prefs.getString("universityID");
-                if (universityID == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("User not found.")),
-                  );
-                  return;
-                }
-
-                final response = await changePasswordRequest(
-                  universityID,
-                  oldPass, // send plain old password, not hashed
-                  newPass, // send plain new password, not hashed
-                );
-
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(response)),
-                );
-              },
-              child: const Text("Change"),
-            ),
-          ],
         );
       },
     );
@@ -163,32 +222,7 @@ class settingsPage extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.all(25),
-              padding: const EdgeInsets.all(26),
-             /* child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Notifications"),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final notiService = NotiService();
-                      await notiService.initNotification(); // Ensure initialization
-                      await notiService.showNotification(
-                        0,
-                        "Test Notification",
-                        "This is a test notification from BZU Leads",
-                      );
-                    },
-                    child: const Text("Show Notification"),
-                  ),
-                ],
-              ),*/
-            ),
+            
             // Edit Profile and Change Password
             ListView(
               shrinkWrap: true,

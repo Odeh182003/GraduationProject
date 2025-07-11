@@ -4,6 +4,7 @@ class Comment {
   final String username;
   final String text;
   final String timestamp;
+  final String? attachment; 
 
   Comment({
     required this.id,
@@ -11,15 +12,18 @@ class Comment {
     required this.username,
     required this.text,
     required this.timestamp,
+    this.attachment, 
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) {
-    return Comment(
-      id: int.parse(json['COMMENTID'].toString()),
-      creatorId: int.parse(json['COMMENTCREATORID'].toString()),
-      username: json['username'] ?? 'Unknown',
-      text: json['COMMENTTEXT'],
-      timestamp: json['TIMESTAMP'],
-    );
-  }
+  return Comment(
+    id: int.tryParse(json['commentid'].toString()) ?? 0,
+    creatorId: int.tryParse(json['commentcreatorid'].toString()) ?? 0,
+    username: json['username'] ?? 'Unknown',
+    text: json['commenttext'] ?? '',
+    timestamp: json['timestamp'] ?? '',
+    attachment: json['attachment'], 
+  );
+}
+
 }

@@ -236,6 +236,7 @@ Widget build(BuildContext context) {
             return TextField(
               controller: passwordController,
               obscureText: _obscurePassword,
+              readOnly: true,
               decoration: InputDecoration(
                 labelText: "Password",
                 suffixIcon: IconButton(
@@ -256,7 +257,7 @@ Widget build(BuildContext context) {
                       //TextField(controller: roleController, decoration: const InputDecoration(labelText: "Role ID")),
                       TextField(controller: genderController, decoration: const InputDecoration(labelText: "Gender")),
                       TextField(controller: dobController, decoration: const InputDecoration(labelText: "Date of Birth")),
-                      TextField(controller: palestinianIDController, decoration: const InputDecoration(labelText: "Palestinian ID")),
+                      TextField(controller: palestinianIDController, readOnly: true, decoration: const InputDecoration(labelText: "Palestinian ID")),
                       
 
                       // Role-Specific Sections
@@ -282,14 +283,17 @@ Widget studentSection() {
       TextField(
         decoration: const InputDecoration(labelText: "Major"),
         controller: TextEditingController(text: userData?["major"] ?? ""),
+        readOnly: true,
       ),
       TextField(
         decoration: const InputDecoration(labelText: "Minor"),
         controller: TextEditingController(text: userData?["minor"] ?? ""),
+        readOnly: true,
       ),
       SizedBox(height: 14,),
       TextField(
         controller: TextEditingController(text: userData?["facultyName"] ?? ""),
+        readOnly: true,
         decoration: const InputDecoration(
           labelText: "Faculty Name",
           border: OutlineInputBorder(), // optional for better visibility
@@ -324,6 +328,7 @@ Widget academicSection() {
       TextField(
         decoration: const InputDecoration(labelText: "Faculty Name"),
         controller: TextEditingController(text: userData?["facultyName"] ?? ""),
+        readOnly: true,
       ),
     ],
   );
@@ -356,10 +361,12 @@ Widget officialSection() {
         TextField(
           decoration: const InputDecoration(labelText: "End Date"),
           controller: TextEditingController(text: StudentClubData?["endDate"] ?? ""),
+          readOnly: true,
         ),
         TextField(
           decoration: const InputDecoration(labelText: "Head Student ID"),
           controller: TextEditingController(text: StudentClubData?["headStudentID"].toString() ?? ""),
+          readOnly: true,
         ),
       ],
       /*TextField(

@@ -83,11 +83,11 @@ Future<void> updateActivityStatus(String activityID, String newStatus) async {
         height: 40,
         errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
       ),
-      const SizedBox(width: 8), // Space between image and text
+      const SizedBox(width: 8), 
       const Text(
         "Edit Activities",
         style: TextStyle(
-          color: Colors.green, // Ensure text color matches your theme
+          color: Colors.green, 
         ),
       ),
     ],

@@ -138,9 +138,9 @@ class _StatisticsPageState extends State<StatisticsPage> {
       physics: NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2, // 3 columns on larger screens, 2 on smaller
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1.2, // Adjust aspect ratio for better spacing
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+        childAspectRatio: 1.2,
       ),
       itemCount: stats.length,
       itemBuilder: (context, index) {

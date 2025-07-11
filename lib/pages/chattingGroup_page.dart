@@ -19,6 +19,7 @@ class _ChattingGroupPageState extends State<ChattingGroupPage> {
   List<Map<String, dynamic>> _groups = [];
   String? _currentUserID;
   String? _role;
+  List<String> _roles = [];
   SharedPreferences? _prefs;
   bool _isLoading = true; // Add loading state
 
@@ -41,13 +42,15 @@ class _ChattingGroupPageState extends State<ChattingGroupPage> {
       final decodedRoles = List<String>.from(jsonDecode(roleJson));
 
       setState(() {
-        _currentUserID = universityID;
-        _role = decodedRoles.contains("academic")
-            ? "academic"
-            : decodedRoles.contains("official")
-                ? "official"
-                : null;
-      });
+      _currentUserID = universityID;
+      _roles = decodedRoles;
+      _role = decodedRoles.contains("academic")
+      ? "academic"
+      : decodedRoles.contains("official")
+          ? "official"
+          : null;
+  });
+
       print("Decoded Roles: $decodedRoles");
       _fetchGroups();
     }
@@ -149,7 +152,7 @@ Widget build(BuildContext context) {
                     );
                   },
                 ),
-    floatingActionButton: (_role == "academic" || _role == "official")
+    floatingActionButton: _roles.contains("academic")
         ? FloatingActionButton(
             onPressed: createGroups,
             backgroundColor: Colors.green,
@@ -178,30 +181,4 @@ void _navigateToChattingPage(Map<String, dynamic> group) {
     ),
   );
 }
-
-/* Widget _buildGroupListItem(Map<String, dynamic> group) {
-    return UserTile(
-      text: group['groupName'],
-      onTap: () async {
-        String? senderUsername = _prefs?.getString("username");
-        if (senderUsername == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Error: User not authenticated")),
-          );
-          return;
-        }
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChattingPage(
-              groupId: group['groupID'],
-              groupName: group['groupName'],
-              senderUsername: senderUsername,
-            ),
-          ),
-        );
-      },
-    );
-  }*/
 }

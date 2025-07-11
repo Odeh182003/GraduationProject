@@ -116,12 +116,15 @@ class _PrivateChatsState extends State<PrivateChats> {
       return;
     }
 
+    final peerId = chat['senderId'] ?? ''; // Ensure peerId is not null
+    final peerName = chat['senderUsername'] ?? 'Unknown'; // Ensure peerName is not null
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PrivateChattingPage(
-          peerId: chat['universityID'],//senderID
-          peerName: chat['username'],//senderName
+          peerId: peerId,
+          peerName: peerName,
           currentUserId: academicId!,
           currentUserName: academicName!,
         ),

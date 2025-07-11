@@ -74,10 +74,10 @@ class _AcademicRoomPageState extends State<AcademicRoomPage> {
         title: Row(
           children: [
             Image.network(
-            ApiConfig.systemLogoUrl,
-            height: 40,
-            errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
-      ),
+              ApiConfig.systemLogoUrl,
+              height: 40,
+              errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image),
+            ),
             const SizedBox(width: 8),
             const Text(
               "Academics' Information",
@@ -96,48 +96,84 @@ class _AcademicRoomPageState extends State<AcademicRoomPage> {
                     final academic = academics[index];
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 3,
-                      child: ListTile(
-                        leading: const Icon(Icons.person, color: Colors.green, size: 36),
-                        title: Text(
-                          academic['name'] ?? 'Unknown',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
-                        ),
-                        subtitle: Column(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("Office Hours: ${academic['officeHours'] ?? 'N/A'}", style: const TextStyle(fontSize: 18)),
-                            Text("Room: ${academic['room'] ?? 'N/A'}", style: const TextStyle(fontSize: 20)),
-                          ],
-                        ),
-                        trailing: ElevatedButton.icon(
-                          icon: const Icon(Icons.chat, color: Colors.black),
-                          label: const Text("Chat", style: TextStyle(color: Colors.black),),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () async {
-                            SharedPreferences prefs = await SharedPreferences.getInstance();
-                            String? studentId = prefs.getString("universityID");
-                            String? studentName = prefs.getString("username");
-                            // Use academicID as peerId
-                            String academicId = academic['academicID'].toString();
-                            String academicName = academic['name'] ?? 'Unknown';
-
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PrivateChattingPage(
-                                  peerId: academicId,
-                                  peerName: academicName,
-                                  currentUserId: studentId ?? '',
-                                  currentUserName: studentName ?? '',
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: Colors.green.shade100,
+                                  child: const Icon(Icons.person, color: Colors.green, size: 36),
                                 ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        academic['name'] ?? 'Unknown',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Office Hours: ${academic['officeHours'] ?? 'N/A'}",
+                                        style: const TextStyle(fontSize: 16, color: Colors.black54),
+                                      ),
+                                      Text(
+                                        "Room: ${academic['room'] ?? 'N/A'}",
+                                        style: const TextStyle(fontSize: 16, color: Colors.black38),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.chat, color: Colors.white),
+                                label: const Text(
+                                  "Chat",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                ),
+                                onPressed: () async {
+                                  SharedPreferences prefs = await SharedPreferences.getInstance();
+                                  String? studentId = prefs.getString("universityID");
+                                  String? studentName = prefs.getString("username");
+                                  String academicId = academic['academicID'].toString();
+                                  String academicName = academic['name'] ?? 'Unknown';
+
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => PrivateChattingPage(
+                                        peerId: academicId,
+                                        peerName: academicName,
+                                        currentUserId: studentId ?? '',
+                                        currentUserName: studentName ?? '',
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                       ),
                     );

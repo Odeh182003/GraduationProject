@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:bzu_leads/pages/postsDetails.dart';
+import 'package:bzu_leads/pages/private_chats.dart';
 import 'package:bzu_leads/services/ApiConfig.dart';
 //import 'package:bzu_leads/pages/privatepostsdetails.dart';
 //import 'package:url_launcher/url_launcher.dart';
@@ -25,7 +26,7 @@ class PrivatePosts extends StatefulWidget {
 
 class _PrivatePostsState extends State<PrivatePosts> {
   String? _currentUserID;
-SharedPreferences? prefs;
+  SharedPreferences? prefs;
   List<dynamic> posts = [];
   bool isLoading = true;
   String message = "Loading posts...";
@@ -33,13 +34,19 @@ SharedPreferences? prefs;
   @override
   void initState() {
     super.initState();
-    fetchPosts();
+    _initializePrefsAndFetch();
+  }
+
+  Future<void> _initializePrefsAndFetch() async {
+    prefs = await SharedPreferences.getInstance();
+    _currentUserID = prefs?.getString("universityID");
+    await fetchPosts();
   }
 
   Future<void> fetchPosts() async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? defaultRole = prefs.getString("defaultRole");
+      SharedPreferences prefsLocal = prefs ?? await SharedPreferences.getInstance();
+      String? defaultRole = prefsLocal.getString("defaultRole");
       // If user is universityAdministrator, fetch all private posts
       if (defaultRole == "universityAdministrator") {
         final data = await Privatepost.fetchAllPrivatePosts();
@@ -55,7 +62,7 @@ SharedPreferences? prefs;
         return;
       }
       // For other users, fetch posts filtered by facultyID
-      String? facultyID = prefs.getString("facultyID");
+      String? facultyID = prefsLocal.getString("facultyID");
       final data = await Privatepost.fetchPrivatePostsByFaculty(facultyID);
       if (data.isNotEmpty) {
         setState(() {
@@ -78,11 +85,11 @@ SharedPreferences? prefs;
     }
   }
 
-  Future<void> logout(BuildContext context) async {
+  /*Future<void> _logout(BuildContext context) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
-  }
+  }*/
 
   /*Future<Size> _getImageSize(String imageUrl) async {
     final Completer<Size> completer = Completer();
@@ -251,18 +258,19 @@ SharedPreferences? prefs;
                         post['DATECREATED'],
                         style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
+                      // Show edit pen if current user is the post creator (by universityID)
                       if (_currentUserID != null &&
                           post['universityID']?.toString() == _currentUserID)
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.green),
                           tooltip: "Edit Post",
                           onPressed: () => showEditPostDialog(
-                          context: context,
-                          post: post,
-                         currentUserID: _currentUserID,
-                        prefs: prefs,
-                        reloadPosts: fetchPosts,
-),
+                            context: context,
+                            post: post,
+                            currentUserID: _currentUserID,
+                            prefs: prefs,
+                            reloadPosts: fetchPosts,
+                          ),
                         ),
                     ],
                   ),
@@ -426,15 +434,15 @@ SharedPreferences? prefs;
                 case 'Chatting Groups':
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const ChattingGroupPage()));
                   break;
-                case 'Private Posts':
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivatePosts()));
+                case 'Private Chats':
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateChats()));
                   break;
                 case 'Settings':
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const settingsPage()));
                   break;
-                case 'Logout':
+                /*case 'Logout':
                   logout(context);
-                  break;
+                  break;*/
               }
             },
             itemBuilder: (context) => [
@@ -446,10 +454,10 @@ SharedPreferences? prefs;
                 ),
               ),
               const PopupMenuItem<String>(
-                value: 'Private Posts',
+                value: 'Private Chats',
                 child: ListTile(
                   leading: Icon(Icons.lock),
-                  title: Text('Private Posts'),
+                  title: Text('Private Chats'),
                 ),
               ),
               const PopupMenuItem<String>(
@@ -459,13 +467,13 @@ SharedPreferences? prefs;
                   title: Text('Settings'),
                 ),
               ),
-              const PopupMenuItem<String>(
+              /*const PopupMenuItem<String>(
                 value: 'Logout',
                 child: ListTile(
                   leading: Icon(Icons.logout),
                   title: Text('Logout'),
                 ),
-              ),
+              ),*/
             ],
           ),
         ],

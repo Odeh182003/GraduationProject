@@ -1,5 +1,3 @@
-import 'package:bzu_leads/pages/profile_page.dart';
-import 'package:bzu_leads/pages/settingsPage.dart';
 import 'package:bzu_leads/services/ApiConfig.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -20,6 +18,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
   DateTime? selectedDate;
 
   String? universityId; // Store loaded university ID
+
+  int? maxParticipants = 10; // Default value
 
   @override
   void initState() {
@@ -70,7 +70,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
     print("Event Content: $eventContent");
     print("Date: $date");
 
-    if (eventTitle.isEmpty || eventContent.isEmpty || date.isEmpty) {
+    if (eventTitle.isEmpty || eventContent.isEmpty || date.isEmpty || maxParticipants == null) {
       _showErrorDialog("Please fill in all required fields.");
       return;
     }
@@ -83,6 +83,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
       'expiryDate': date, // Store selected date as expiryDate
       'CONTENT': eventContent,
       'status': 'Pendding',
+      'max_participants': maxParticipants, // Add this line
     };
 
     try {
@@ -95,6 +96,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
       if (response.statusCode == 200) {
         var responseData = json.decode(response.body);
         if (responseData['status'] == 'success') {
+          // Clear all fields after successful addition
+          setState(() {
+            eventTitleController.clear();
+            eventContentController.clear();
+            selectedDate = null;
+            maxParticipants = 10;
+          });
           _showSuccessDialog(responseData['message']);
         } else {
           _showErrorDialog(responseData['message']);
@@ -160,42 +168,14 @@ class _EventFormScreenState extends State<EventFormScreen> {
       ),
       const SizedBox(width: 8), // Space between image and text
       const Text(
-        "Officials' Create New Events",
+        "Create New Events",
         style: TextStyle(
           color: Colors.green, // Ensure text color matches your theme
         ),
       ),
     ],
   ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const settingsPage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () async {
-              SharedPreferences prefs = await SharedPreferences.getInstance();
-              String? userID = prefs.getString("universityID");
-
-              if (userID != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfilePage()),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("User ID not found. Please log in again.")),
-                );
-              }
-            },
-          ),
-        ],
+        
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -221,8 +201,31 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
+            // Max Participants Picker
+            const Text("Max Participants"),
+            DropdownButtonFormField<int>(
+              value: maxParticipants,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: List.generate(20, (index) => index + 1)
+                  .map((num) => DropdownMenuItem(
+                        value: num,
+                        child: Text(num.toString()),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  maxParticipants = value;
+                });
+              },
+              hint: const Text("Select max participants"),
+            ),
+
+            const SizedBox(height: 20),
             Center(
               child: ElevatedButton(
                 onPressed: _submitForm,
